@@ -150,16 +150,6 @@ public interface OssApi {
     /**
      * 上传文件 内部会关闭流
      *
-     * <ul>
-     *   <li>If object size is unknown, pass -1 to objectSize and pass valid partSize.
-     *   <li>If object size is known, pass -1 to partSize for auto detect; else pass valid partSize
-     *       to control memory usage and no. of parts in upload.
-     *   <li>If partSize is greater than objectSize, objectSize is used as partSize.
-     * </ul>
-     *
-     * <p>A valid part size is between 5MiB to 5GiB (both limits inclusive).
-     * <p>
-     *
      * @param args {@link PutObjectArgs}
      * @return {@link CopyObjectResponse}
      */

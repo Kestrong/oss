@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
  */
 public abstract class AbstractSsoApiImpl implements OssApi {
     protected final Logger log = LoggerFactory.getLogger(getClass());
+    private static final MimetypesFileTypeMap MIMETYPES_FILE_TYPE_MAP = new MimetypesFileTypeMap();
 
     protected void checkBucketName(String bucket) {
         if (StringUtils.isBlank(bucket)) {
@@ -63,7 +64,7 @@ public abstract class AbstractSsoApiImpl implements OssApi {
     public String getContentType(String file) {
         String contentType = null;
         try {
-            contentType = new MimetypesFileTypeMap().getContentType(new File(file));
+            contentType = MIMETYPES_FILE_TYPE_MAP.getContentType(file);
         } catch (Exception e) {
             //ignore
         }

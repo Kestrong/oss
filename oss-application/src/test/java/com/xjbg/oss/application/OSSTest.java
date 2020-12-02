@@ -189,8 +189,8 @@ public class OSSTest extends BaseTest {
         }
         String fileName = "D://tmp/README.txt";
         DownloadObjectArgs downloadObjectArgs = DownloadObjectArgs.builder()
-                .bucket("https://github.com/minio/minio-java/blob/release/")
-                .object("README.md")
+                .bucket(ossApi.apiType().equals(ApiType.FILESYSTEM) ? "https://github.com/minio/minio-java/blob/release/" : bucket)
+                .object(ossApi.apiType().equals(ApiType.FILESYSTEM) ? "README.md" : object2)
                 .fileName(fileName)
                 .build();
         ossApi.downloadObject(downloadObjectArgs);

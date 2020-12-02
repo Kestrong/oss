@@ -15,6 +15,7 @@ import java.util.Date;
 @Getter
 @Setter
 public class ItemResponse {
+    private String bucket;
     private String objectName;
     private Date lastModified;
     private String etag;
@@ -23,26 +24,23 @@ public class ItemResponse {
     private Owner owner;
     private String type;
 
-    public ItemResponse(String objectName, Date lastModified, String etag, long size, String storageClass, Owner owner, String type) {
+    public ItemResponse(String bucket, String objectName, Date lastModified, String etag, long size, String storageClass, Owner owner, String type) {
+        this.bucket = bucket;
         this.objectName = objectName;
         this.lastModified = lastModified;
         this.etag = etag;
         this.size = size;
         this.storageClass = storageClass;
         this.owner = owner;
-        this.type = type;
+        if (type != null) {
+            this.type = type;
+        } else {
+            this.type = this.objectName != null && (this.objectName.endsWith("/") || this.objectName.endsWith("\\")) ? FileType.DIRECTORY.getType() : FileType.FILE.getType();
+        }
     }
 
-
     public ItemResponse(S3ObjectSummary item) {
-        this.objectName = item.getKey();
-        this.lastModified = item.getLastModified();
-        this.etag = item.getETag();
-        this.size = item.getSize();
-        this.storageClass = item.getStorageClass();
-        com.amazonaws.services.s3.model.Owner owner = item.getOwner();
-        this.owner = owner == null ? null : new Owner(owner.getId(), owner.getDisplayName());
-        this.type = this.objectName != null && (this.objectName.endsWith("/") || this.objectName.endsWith("\\")) ? FileType.DIRECTORY.getType() : FileType.FILE.getType();
+        this(item.getBucketName(), item.getKey(), item.getLastModified(), item.getETag(), item.getSize(), item.getStorageClass(), item.getOwner(), null);
     }
 
 }

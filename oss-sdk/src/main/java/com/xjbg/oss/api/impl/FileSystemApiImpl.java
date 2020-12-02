@@ -86,7 +86,7 @@ public class FileSystemApiImpl extends AbstractSsoApiImpl {
             File file = Paths.get(baseDir, bucket).toFile();
             if (file.exists() && file.isDirectory()) {
                 BucketResponse bucketResponse = new BucketResponse();
-                bucketResponse.setName(file.getName());
+                bucketResponse.setName(bucket);
                 bucketResponse.setCreationDate(new Date(file.lastModified()));
                 bucketResponses.add(bucketResponse);
             }
@@ -204,7 +204,7 @@ public class FileSystemApiImpl extends AbstractSsoApiImpl {
         }
         if (!file.isDirectory()) {
             log.warn("this bucket[{}] is not a directory", args.getBucket());
-            return Collections.singletonList(new ItemResponse(file.getName(), new Date(file.lastModified()), null, file.length(), null, null, FileType.FILE.getType()));
+            return Collections.emptyList();
         }
         List<ItemResponse> responses = new ArrayList<>();
         listObjects(responses, file, args, "");
@@ -230,7 +230,7 @@ public class FileSystemApiImpl extends AbstractSsoApiImpl {
                 if (StringUtils.isNotBlank(args.getSuffix()) && !object.endsWith(args.getSuffix())) {
                     continue;
                 }
-                responses.add(new ItemResponse(object, new Date(f.lastModified()), null, f.length(), null, null, f.isDirectory() ? FileType.DIRECTORY.getType() : FileType.FILE.getType()));
+                responses.add(new ItemResponse(args.getBucket(), object, new Date(f.lastModified()), null, f.length(), null, null, f.isDirectory() ? FileType.DIRECTORY.getType() : FileType.FILE.getType()));
             }
         }
     }
@@ -293,7 +293,7 @@ public class FileSystemApiImpl extends AbstractSsoApiImpl {
             File file = new File(fullPath);
             try {
                 if (file.exists()) {
-                    deleteDir(responses, file);
+                    deleteDir(responses, file, args.getBucket());
                 }
             } catch (Exception e) {
                 log.error(e.getMessage(), e);
@@ -302,22 +302,22 @@ public class FileSystemApiImpl extends AbstractSsoApiImpl {
         return responses;
     }
 
-    private void deleteDir(List<RemoveObjectResponse> responses, File file) {
+    private void deleteDir(List<RemoveObjectResponse> responses, File file, String bucket) {
         if (file.isFile()) {
             boolean delete = file.delete();
             if (delete) {
-                responses.add(new RemoveObjectResponse(null, file.getAbsolutePath(), null));
+                responses.add(new RemoveObjectResponse(bucket, Paths.get(baseDir, bucket).relativize(file.toPath()).toString(), null));
             }
         } else {
             File[] files = file.listFiles();
             if (files != null && files.length > 0) {
                 for (File f : files) {
-                    deleteDir(responses, f);
+                    deleteDir(responses, f, bucket);
                 }
             }
             boolean delete = file.delete();
             if (!delete) {
-                responses.add(new RemoveObjectResponse(null, file.getAbsolutePath(), null));
+                responses.add(new RemoveObjectResponse(bucket, Paths.get(baseDir, bucket).relativize(file.toPath()).toString(), null));
             }
         }
     }
