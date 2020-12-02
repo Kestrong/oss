@@ -1,0 +1,7 @@
+jar.enabled=true
+bootJar.enabled=false
+
+dependencies {
+    compile 'com.amazonaws:aws-java-sdk-s3'
+    compile 'ch.qos.logback:logback-classic'
+}

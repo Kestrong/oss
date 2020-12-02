@@ -1,0 +1,28 @@
+server:
+  servlet:
+    context-path: /oss-api
+    session:
+      timeout: 1800
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain,text/javascript,text/css,application/javascript,image/svg+xml,application/font-woff,application/x-font-woff,application/x-font-ttf,application/font-ttf,application/x-font-woff2,application/font-woff2,application/x-font-eot,application/font-eot
+    min-response-size: 10240
+
+spring:
+  # =====================cloud==================
+  cloud:
+    nacos:
+      config:
+        server-addr: ${CONFIG_CENTER_HOST:localhost}:${CONFIG_CENTER_PORT:8848}
+        file-extension: yml
+      discovery:
+        server-addr: ${CONFIG_CENTER_HOST:localhost}:${CONFIG_CENTER_PORT:8848}
+  # =====================http==================
+  http:
+    encoding:
+      enabled: true
+      charset: UTF-8
+      force: true
+  # =====================application==================
+  application:
+    name: oss-api

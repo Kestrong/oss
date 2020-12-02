@@ -1,0 +1,28 @@
+spring:
+  profiles:
+    active: local
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+      config:
+        enabled: false
+
+oss:
+  enable: true
+  defaultApiType: minio
+  minio:
+    defaultBucket: test
+    url: http://192.168.17.213:19000
+    accessKey: minio
+    secretKey: minio123
+    enable: true
+
+cors:
+  allow-credentials: true
+  allowed-origins:
+    - "*"
+  allowed-methods:
+    - "*"
+  allowed-headers:
+    - "*"

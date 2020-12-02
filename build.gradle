@@ -1,0 +1,136 @@
+buildscript {
+    repositories {
+        mavenLocal()
+        maven {
+            url MAVEN_REPOSITORY_ALIYUN
+        }
+    }
+    dependencies {
+        classpath 'org.springframework.boot:spring-boot-gradle-plugin:2.1.7.RELEASE'
+    }
+}
+
+plugins {
+    id 'java'
+    id 'maven'
+    id 'maven-publish'
+    id 'io.spring.dependency-management' version '1.0.9.RELEASE'
+}
+
+configurations.all {
+    // 动态版本
+    resolutionStrategy.cacheDynamicVersionsFor 24, 'hours'
+    // 变化模块
+    resolutionStrategy.cacheChangingModulesFor 30, 'minutes'
+}
+
+allprojects {
+    group 'com.xjbg'
+    version '1.0-SNAPSHOT'
+}
+
+def versionMap = [
+        "springCloudVersion": "Greenwich.SR3",
+        "springboot"        : "2.1.7.RELEASE",
+        "springCloudNacos"  : "2.1.0.RELEASE",
+        "springBootNacos"   : "0.2.4"
+]
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'java-library'
+    apply plugin: 'maven'
+    apply plugin: 'maven-publish'
+    apply plugin: 'org.springframework.boot'
+    apply plugin: 'io.spring.dependency-management'
+
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
+
+    [compileJava, compileTestJava, javadoc]*.options*.encoding = 'UTF-8'
+
+    repositories {
+        mavenLocal()
+        maven {
+            url MAVEN_REPOSITORY_ALIYUN
+        }
+    }
+
+    task sourcesJar(type: Jar) {
+        archiveClassifier = 'sources'
+        from sourceSets.main.allJava
+    }
+
+    publishing {
+        repositories {
+            mavenLocal()
+            maven {
+                credentials {
+                    username MAVEN_REPOSITORY_USER
+                    password MAVEN_REPOSITORY_PWD
+                }
+                url MAVEN_REPOSITORYT_URL
+            }
+        }
+        publications {
+            maven(MavenPublication) {
+                pom {
+                    packaging 'jar'
+                }
+                groupId project.group
+                artifactId project.name
+                version project.version
+
+                from components.java
+                artifact sourcesJar
+
+                versionMapping {
+                    usage('java-api') {
+                        fromResolutionOf('runtimeClasspath')
+                    }
+                    usage('java-runtime') {
+                        fromResolutionResult()
+                    }
+                }
+            }
+        }
+    }
+
+    dependencyManagement {
+        dependencies {
+            dependency 'org.projectlombok:lombok:1.18.12'
+            dependency 'com.alibaba:fastjson:1.2.75'
+            dependency group: 'junit', name: 'junit', version: '4.13'
+            dependency 'ch.qos.logback:logback-classic:1.2.3'
+            dependency 'commons-beanutils:commons-beanutils:1.9.4'
+            dependency 'commons-codec:commons-codec:1.15'
+            dependency 'org.apache.commons:commons-lang3:3.11'
+            dependency 'commons-collections:commons-collections:3.2.2'
+            dependency 'commons-io:commons-io:2.8.0'
+            dependency 'commons-fileupload:commons-fileupload:1.4'
+            dependency "com.alibaba.boot:nacos-config-spring-boot-starter:$versionMap.springBootNacos"
+            dependency "com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-discovery:$versionMap.springCloudNacos"
+            dependency "com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-config:$versionMap.springCloudNacos"
+        }
+        imports {
+            mavenBom "org.springframework.boot:spring-boot-dependencies:$versionMap.springboot"
+            mavenBom "org.springframework.cloud:spring-cloud-dependencies:$versionMap.springCloudVersion"
+            mavenBom 'com.amazonaws:aws-java-sdk-bom:1.11.908'
+        }
+    }
+
+    dependencies {
+        compile 'com.alibaba:fastjson'
+        compile 'commons-io:commons-io'
+        compile 'org.apache.commons:commons-lang3'
+        compile 'commons-fileupload:commons-fileupload'
+
+        annotationProcessor 'org.projectlombok:lombok'
+        compileOnly 'org.projectlombok:lombok'
+
+        testAnnotationProcessor 'org.projectlombok:lombok'
+        testCompileOnly 'org.projectlombok:lombok'
+        testCompile group: 'junit', name: 'junit'
+        testCompile 'org.springframework.boot:spring-boot-starter-test'
+    }
+}

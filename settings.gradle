@@ -1,0 +1,5 @@
+rootProject.name = 'oss'
+include 'oss-sdk'
+include 'spring-boot-starter-oss'
+include 'oss-application'
+

@@ -1,0 +1,125 @@
+package com.xjbg.oss.properties;
+
+import com.xjbg.oss.enums.ApiType;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.cloud.context.config.annotation.RefreshScope;
+import org.springframework.core.annotation.Order;
+
+/**
+ * @author kesc
+ * @date 2020-08-06 11:19
+ */
+@Getter
+@Setter
+@Order
+@RefreshScope
+@ConfigurationProperties(prefix = OssProperties.PREFIX)
+public class OssProperties {
+    public static final String PREFIX = "oss";
+    /**
+     * Default api type {@link ApiType}
+     */
+    private String defaultApiType = ApiType.FILESYSTEM.name();
+
+    /**
+     * enable sso template
+     */
+    private boolean enable = true;
+
+    /**
+     * base directory for filesystem
+     */
+    private String baseDir = "";
+
+    /**
+     * http connection config
+     */
+    private ClientConfig clientConfig = new ClientConfig();
+
+    /**
+     * s3 properties
+     */
+    private S3Properties s3 = new S3Properties();
+
+    /**
+     * ceph properties
+     */
+    private CephProperties ceph = new CephProperties();
+
+    /**
+     * minio properties
+     */
+    private MinioProperties minio = new MinioProperties();
+
+    /**
+     * fusion storage properties
+     */
+    private FusionStorageProperties fusion = new FusionStorageProperties();
+
+    @Data
+    public static class S3Properties {
+        /**
+         * default bucket to use when args don't specify bucket
+         */
+        private String defaultBucket;
+        /**
+         * Endpoint is an URL, domain name, IPv4 or IPv6 address of S3 service.
+         */
+        private String url;
+        /**
+         * Access key (aka user ID) of your account
+         */
+        private String accessKey;
+        /**
+         * Secret key (aka password) of your account
+         */
+        private String secretKey;
+
+        /**
+         * enable minio
+         */
+        private boolean enable = false;
+
+        /**
+         * auto create bucket
+         */
+        private boolean autoCreateBucket = false;
+    }
+
+    @EqualsAndHashCode(callSuper = true)
+    public static class MinioProperties extends S3Properties {
+    }
+
+    @EqualsAndHashCode(callSuper = true)
+    public static class FusionStorageProperties extends S3Properties {
+    }
+
+    @EqualsAndHashCode(callSuper = true)
+    public static class CephProperties extends S3Properties {
+    }
+
+    @Getter
+    @Setter
+    public static class ClientConfig {
+        /**
+         * {@link com.amazonaws.http.SystemPropertyTlsKeyManagersProvider}
+         */
+        private boolean useHttps = false;
+        private Integer connectionTimeout;
+        private Long connectionMaxIdleMillis;
+        private Long connectionTTL;
+        private Integer maxConnections;
+        private Integer requestTimeout;
+        private Integer socketTimeout;
+        private boolean useGzip = false;
+        private boolean tcpKeepAlive = false;
+    }
+
+    public ApiType getDefaultApiType() {
+        return ApiType.valueOf(defaultApiType.toUpperCase());
+    }
+}

@@ -1,0 +1,13 @@
+jar.enabled = true
+bootJar.enabled = false
+
+dependencies {
+    compile project(':oss-sdk')
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-configuration-processor'
+    implementation 'org.springframework.boot:spring-boot-autoconfigure-processor'
+
+    compileOnly 'com.alibaba.boot:nacos-config-spring-boot-starter'
+    compileOnly 'com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-discovery'
+    compileOnly 'com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-config'
+}

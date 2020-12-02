@@ -1,0 +1,29 @@
+bootJar {
+    manifestContentCharset 'utf-8'
+    metadataCharset 'utf-8'
+    archivesBaseName = 'oss-api'
+    manifest {
+        attributes "Manifest-Version": 1.0,
+                'Start-Class': 'com.xjbg.oss.OssApplication'
+    }
+}
+
+jar.enabled = true
+bootJar.enabled = true
+
+dependencies {
+    compile project(':spring-boot-starter-oss')
+    implementation('org.springframework.boot:spring-boot-starter-web') {
+        exclude module: 'spring-boot-starter-tomcat'
+    }
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+    implementation 'org.springframework.boot:spring-boot-starter-jetty'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    implementation 'com.alibaba.boot:nacos-config-spring-boot-starter'
+    implementation 'com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-discovery'
+    implementation 'com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-config'
+
+    implementation "io.springfox:springfox-swagger2:2.9.2"
+    implementation "io.springfox:springfox-swagger-ui:2.9.2"
+}
