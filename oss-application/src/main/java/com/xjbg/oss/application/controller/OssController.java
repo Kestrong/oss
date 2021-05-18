@@ -7,9 +7,11 @@ import com.xjbg.oss.api.request.*;
 import com.xjbg.oss.api.response.*;
 import com.xjbg.oss.application.base.BaseResponse;
 import com.xjbg.oss.enums.ApiType;
+import com.xjbg.oss.enums.Encoding;
 import com.xjbg.oss.exception.OssExceptionEnum;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -17,6 +19,8 @@ import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.List;
 
@@ -154,15 +158,16 @@ public class OssController {
                           GetObjectArgs args, HttpServletResponse response) {
         OssApi ossApi = ossApi(apiType);
         try (InputStream inputStream = ossApi.getObject(args).getInputStream()) {
+            String filename = Paths.get(args.getObject()).getFileName().toString();
+            filename = URLEncoder.encode(filename, Encoding.UTF_8.getEncoding());
+            response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename="
+                    + new String(filename.getBytes(StandardCharsets.UTF_8), StandardCharsets.ISO_8859_1));
             response.setContentType(OssConstants.DEFAUL_CONTENT_TYPE);
-            response.setHeader("Content-Disposition", "attachment; filename=" + Paths.get(args.getObject()).getFileName().toString());
             ServletOutputStream outputStream = response.getOutputStream();
             byte[] buff = new byte[1024];
-            int read = inputStream.read(buff);
-            while (read != -1) {
+            int read;
+            while ((read = inputStream.read(buff)) != -1) {
                 outputStream.write(buff, 0, read);
-                outputStream.flush();
-                read = inputStream.read(buff);
             }
         } catch (Exception e) {
             log.error(e.getMessage(), e);
