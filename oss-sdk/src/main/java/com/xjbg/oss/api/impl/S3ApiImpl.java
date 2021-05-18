@@ -326,6 +326,10 @@ public class S3ApiImpl extends AbstractSsoApiImpl {
     public void downloadObject(DownloadObjectArgs args) {
         log.info("{}", JSON.toJSONString(args));
         try {
+            File file = new File(args.getFileName());
+            if (!file.exists()) {
+                createFile(file, Boolean.FALSE);
+            }
             String presignedObjectUrl = getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
                     .bucket(args.getBucket())
                     .object(args.getObject())

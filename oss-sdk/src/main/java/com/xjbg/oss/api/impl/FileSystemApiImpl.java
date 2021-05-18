@@ -161,21 +161,6 @@ public class FileSystemApiImpl extends AbstractSsoApiImpl {
         }
     }
 
-    private void createFile(File file, boolean isDirectory) throws IOException {
-        if (file.exists()) {
-            return;
-        }
-        if (isDirectory) {
-            file.mkdirs();
-        } else {
-            File parentFile = file.getParentFile();
-            if (parentFile != null) {
-                parentFile.mkdirs();
-            }
-            file.createNewFile();
-        }
-    }
-
     @Override
     public void downloadObject(DownloadObjectArgs args) {
         log.info("{}", JSON.toJSONString(args));

@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.activation.MimetypesFileTypeMap;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -69,5 +70,20 @@ public abstract class AbstractSsoApiImpl implements OssApi {
             //ignore
         }
         return contentType;
+    }
+
+    protected void createFile(File file, boolean isDirectory) throws IOException {
+        if (file.exists()) {
+            return;
+        }
+        if (isDirectory) {
+            file.mkdirs();
+        } else {
+            File parentFile = file.getParentFile();
+            if (parentFile != null) {
+                parentFile.mkdirs();
+            }
+            file.createNewFile();
+        }
     }
 }
