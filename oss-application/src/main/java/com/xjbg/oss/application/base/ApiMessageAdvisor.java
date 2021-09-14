@@ -1,6 +1,7 @@
 package com.xjbg.oss.application.base;
 
 import com.alibaba.fastjson.JSON;
+import com.xjbg.oss.OssConstants;
 import com.xjbg.oss.exception.OssException;
 import com.xjbg.oss.exception.OssExceptionEnum;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -93,7 +94,7 @@ public class ApiMessageAdvisor {
         response.setMsg(errorMessage);
         if (!returnClazz.isAssignableFrom(BaseResponse.class)) {
             try {
-                httpServletResponse.setContentType("application/json");
+                httpServletResponse.setContentType(OssConstants.APPLICATION_JSON_VALUE);
                 httpServletResponse.getOutputStream().write(JSON.toJSONString(response).getBytes(StandardCharsets.UTF_8));
             } catch (IOException e) {
                 LOGGER.error(e.getMessage());

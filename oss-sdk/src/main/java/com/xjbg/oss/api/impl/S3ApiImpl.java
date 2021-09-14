@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
  * @author kesc
  * @date 2020-08-06 11:33
  */
-public class S3ApiImpl extends AbstractSsoApiImpl {
+public class S3ApiImpl extends AbstractOssApiImpl {
     private static final String SLASH = "/";
     private static final String BACK_SLASH = "\\";
     protected AmazonS3 s3Client;

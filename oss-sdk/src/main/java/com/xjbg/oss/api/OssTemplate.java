@@ -25,6 +25,10 @@ public class OssTemplate {
     public OssTemplate() {
     }
 
+    public boolean isEnable(ApiType apiType) {
+        return apis.containsKey(apiType);
+    }
+
     public void register(ApiType apiType, OssApi ossApi) {
         apis.put(apiType, ossApi);
     }
@@ -35,6 +39,10 @@ public class OssTemplate {
 
     public OssApi api(ApiType apiType) {
         return Objects.requireNonNull(apis.get(apiType));
+    }
+
+    public OssApi s3Api() {
+        return apis.get(ApiType.S3);
     }
 
     public OssApi minioApi() {
@@ -51,5 +59,9 @@ public class OssTemplate {
 
     public OssApi cephApi() {
         return apis.get(ApiType.CEPH);
+    }
+
+    public OssApi webHdfsApi() {
+        return apis.get(ApiType.WEBHDFS);
     }
 }

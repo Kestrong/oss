@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
  * @author kesc
  * @date 2020-08-06 17:46
  */
-public abstract class AbstractSsoApiImpl implements OssApi {
+public abstract class AbstractOssApiImpl implements OssApi {
     protected final Logger log = LoggerFactory.getLogger(getClass());
     private static final MimetypesFileTypeMap MIMETYPES_FILE_TYPE_MAP = new MimetypesFileTypeMap();
 

@@ -34,14 +34,20 @@ public class CopyObjectArgs extends ObjectArgs {
 
     public static class Builder extends ObjectArgs.Builder<Builder, CopyObjectArgs> {
         public Builder srcObject(String srcObject) {
-            validateObjectName(srcObject);
+            validateNotEmptyString(srcObject, "srcObject name");
             operations.add(args -> args.srcObject = srcObject);
             return this;
         }
 
         public Builder srcBucket(String srcBucket) {
-            validateNotNull(srcBucket, "bucket name");
+            validateNotEmptyString(srcBucket, "srcBucket name");
             operations.add(args -> args.srcBucket = srcBucket);
+            return this;
+        }
+
+        @Override
+        public Builder object(String name) {
+            operations.add(args -> args.object = name);
             return this;
         }
 

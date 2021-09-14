@@ -26,7 +26,7 @@ public class OssProperties {
     private String defaultApiType = ApiType.FILESYSTEM.name();
 
     /**
-     * enable sso template
+     * enable oss template
      */
     private boolean enable = true;
 
@@ -59,6 +59,11 @@ public class OssProperties {
      * fusion storage properties
      */
     private FusionStorageProperties fusion = new FusionStorageProperties();
+
+    /**
+     * webhdfs properties
+     */
+    private WebHdfsProperties webhdfs;
 
     @Data
     public static class S3Properties {
@@ -102,6 +107,14 @@ public class OssProperties {
     public static class CephProperties extends S3Properties {
     }
 
+    @EqualsAndHashCode(callSuper = true)
+    @Data
+    public static class WebHdfsProperties extends S3Properties {
+        private String krb5;
+        private String servicePrincipal;
+        private boolean debug = false;
+    }
+
     @Getter
     @Setter
     public static class ClientConfig {
@@ -109,12 +122,12 @@ public class OssProperties {
          * {@link com.amazonaws.http.SystemPropertyTlsKeyManagersProvider}
          */
         private boolean useHttps = false;
-        private Integer connectionTimeout;
-        private Long connectionMaxIdleMillis;
-        private Long connectionTTL;
-        private Integer maxConnections;
-        private Integer requestTimeout;
-        private Integer socketTimeout;
+        private Integer connectionTimeout = 10_000;
+        private Long connectionMaxIdleMillis = 60_000L;
+        private Long connectionTTL = 120_000L;
+        private Integer maxConnections = 30;
+        private Integer requestTimeout = 10_000;
+        private Integer socketTimeout = 10_000;
         private boolean useGzip = false;
         private boolean tcpKeepAlive = false;
     }

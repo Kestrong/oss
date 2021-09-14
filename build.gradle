@@ -108,6 +108,8 @@ subprojects {
             dependency 'commons-collections:commons-collections:3.2.2'
             dependency 'commons-io:commons-io:2.8.0'
             dependency 'commons-fileupload:commons-fileupload:1.4'
+            dependency "com.squareup.okhttp3:okhttp:3.14.9"
+            dependency "com.google.guava:guava:29.0-jre"
             dependency "com.alibaba.boot:nacos-config-spring-boot-starter:$versionMap.springBootNacos"
             dependency "com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-discovery:$versionMap.springCloudNacos"
             dependency "com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-config:$versionMap.springCloudNacos"

@@ -23,7 +23,7 @@ import java.util.List;
  * @author kesc
  * @date 2020-08-06 17:30
  */
-public class FileSystemApiImpl extends AbstractSsoApiImpl {
+public class FileSystemApiImpl extends AbstractOssApiImpl {
     private String baseDir;
 
     public FileSystemApiImpl(String baseDir) {
@@ -32,21 +32,23 @@ public class FileSystemApiImpl extends AbstractSsoApiImpl {
 
     @Override
     public void setBucketAcl(SetBucketAclArgs args) {
-
+        log.warn("unsupported operation");
     }
 
     @Override
     public AclResponse getBucketAcl(GetBucketAclArgs args) {
+        log.warn("unsupported operation");
         return null;
     }
 
     @Override
     public void setBucketPolicy(SetBucketPolicyArgs args) {
-
+        log.warn("unsupported operation");
     }
 
     @Override
     public String getBucketPolicy(GetBucketPolicyArgs args) {
+        log.warn("unsupported operation");
         return null;
     }
 
@@ -96,11 +98,12 @@ public class FileSystemApiImpl extends AbstractSsoApiImpl {
 
     @Override
     public void setObjectAcl(SetObjectAclArgs args) {
-
+        log.warn("unsupported operation");
     }
 
     @Override
     public AclResponse getObjectAcl(GetObjectAclArgs args) {
+        log.warn("unsupported operation");
         return null;
     }
 

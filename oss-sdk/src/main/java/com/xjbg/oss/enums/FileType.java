@@ -9,11 +9,21 @@ import lombok.Getter;
 @Getter
 public enum FileType {
     DIRECTORY("directory"),
-    FILE("file");
+    FILE("file"),
+    SYMLINK("symlink");
 
     private String type;
 
     FileType(String type) {
         this.type = type;
+    }
+
+    public static FileType getType(String type) {
+        for (FileType fileType : values()) {
+            if (fileType.getType().equalsIgnoreCase(type)) {
+                return fileType;
+            }
+        }
+        return FILE;
     }
 }

@@ -9,5 +9,6 @@ public enum ApiType {
     FUSION,
     CEPH,
     S3,
-    FILESYSTEM;
+    FILESYSTEM,
+    WEBHDFS;
 }

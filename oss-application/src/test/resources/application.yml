@@ -1,8 +1,17 @@
 oss:
   enable: true
-  defaultApiType: minio
+  defaultApiType: webhdfs
   minio:
     url: http://192.168.7.152:9000 #http://play.min.io
     accessKey: minio #Q3AM3UQ867SPQQA43P2F
     secretKey: minio123 #zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG
-    enable: true
+    enable: false
+  webhdfs:
+    defaultBucket: test #默认挂载点
+    url: http://192.168.7.33:50070/webhdfs/v1 #连接地址 192.168.7.140
+    accessKey: client@TEST.COM #用户名 不管kerberos还是simple认证都必填
+    secretKey: D:\文档\开发文件\对象存储\hdfs操作\client.keytab #密码
+    enable: true #是否启用默认false
+    krb5: D:\文档\开发文件\对象存储\hdfs操作\krb5.conf #kerberos登录认证域信息
+    servicePrincipal: hdp01 #kerberos认证的spn 一般是域名 默认取url对应的hostname
+    debug: false #调试(初次部署)时要设置为true方便排查问题
