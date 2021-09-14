@@ -141,7 +141,7 @@ public class OssAutoConfiguration {
                 .writeTimeout(clientConfig.getRequestTimeout(), TimeUnit.MILLISECONDS)
                 .readTimeout(clientConfig.getRequestTimeout(), TimeUnit.MILLISECONDS)
                 .protocols(Collections.singletonList(okhttp3.Protocol.HTTP_1_1));
-        String filename = System.getenv("SSL_CERT_FILE");
+        String filename = System.getProperty("SSL_CERT_FILE");
         if (clientConfig.isUseHttps()) {
             if (StringUtils.hasText(filename)) {
                 try {

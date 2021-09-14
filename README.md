@@ -1,12 +1,12 @@
 # oss
 
-一个支持s3/minio/fusion storage/ceph协议的对象存储和文件系统操作sdk，支持spring-boot的starter方式配置和启动，简化开发的流程。同时也提供了rest接口方便调测。
+一个支持s3/minio/fusion storage/ceph/webhdfs协议的对象存储和文件系统操作sdk，支持spring-boot的starter方式配置和启动，简化开发的流程。同时也提供了rest接口方便调测。
 
 ## 模块介绍
 
 * oss-sdk
 
-基础模块，提供s3和文件系统的操作接口，内部适配了s3、minio、fusion storage、ceph、filesystem等多种存储服务的接口，可以自由拓展。
+基础模块，提供s3和文件系统的操作接口，内部适配了s3、minio、fusion storage、ceph、filesystem、webhdfs等多种存储服务的接口，可以自由拓展。
 
 * spring-boot-starter-oss
 
@@ -36,7 +36,7 @@
 ```
 oss:
   enable: true #是否启用 默认true
-  defaultApiType: minio #默认的api类型 可选[s3,minio,fusion,ceph,filesystem]
+  defaultApiType: minio #默认的api类型 可选[s3,minio,fusion,ceph,filesystem,webhdfs]
   baseDir: / #filesystem的基准目录 如不需要可以去掉该属性
   clientConfig:
     useHttps: false #是否开启https 默认false
@@ -78,8 +78,9 @@ oss:
 
 ## 注意事项
 
+* webhdfs使用的是okhttp进行rest调用，其它满足s3协议的使用aws-java-sdk调用（底层为http-client）
 * s3协议的bucket为存储桶，命名规则为```[a-zA-Z0-9.-]{3,63}```，为了方便使用内部会自动取'/'或'\\'的第一级作为bucket，剩下的部分会拼接到object的前面
-* 使用https需要配置(例如通过Java -D启动命令指定)```javax.net.ssl.keyStore```、```javax.net.ssl.keyStorePassword```和```javax.net.ssl.keyStoreType```系统变量(System Property)
+* 使用https时webhdfs需要配置```SSL_CERT_FILE```其他类型需要配置```javax.net.ssl.keyStore```、```javax.net.ssl.keyStorePassword```和```javax.net.ssl.keyStoreType```系统变量(System Property，例如通过Java -D启动命令指定)
 * 严格控制好目录和文件的命名，避免文件、目录之间命名冲突导致未知的异常
 * 例子(linux系统)：
    * ```文件 bucket:tmp object:log/oss.log result: /tmp/log/oss.log ```
@@ -87,3 +88,4 @@ oss:
 ## 参考文档
 
 1. [s3官方文档](https://amazonaws-china.com/cn/s3/)
+2. [webhdfs官方文档](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-hdfs/WebHDFS.html)
