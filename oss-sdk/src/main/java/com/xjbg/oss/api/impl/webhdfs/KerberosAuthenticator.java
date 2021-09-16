@@ -149,7 +149,9 @@ public class KerberosAuthenticator extends PseudoAuthenticator {
         this.servicePrincipal = servicePrincipal;
         this.url = url;
         this.okHttpClient = okHttpClient;
-        System.setProperty("java.security.krb5.conf", krb5);
+        if (StringUtils.isNotBlank(krb5)) {
+            System.setProperty("java.security.krb5.conf", krb5);
+        }
         if (debug) {
             System.setProperty("sun.security.spnego.debug", "true");
             System.setProperty("sun.security.krb5.debug", "true");
