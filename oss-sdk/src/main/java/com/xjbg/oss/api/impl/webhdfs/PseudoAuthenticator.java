@@ -74,8 +74,9 @@ public class PseudoAuthenticator implements Authenticator {
                 .header(AUTHORIZATION, NEGOTIATE + " " + token)
                 .method(AUTH_HTTP_METHOD, null)
                 .build();
-        Response response = okHttpClient.newCall(request).execute();
-        extractToken(response, token);
+        try (Response response = okHttpClient.newCall(request).execute()) {
+            extractToken(response, token);
+        }
     }
 
     public static void extractToken(Response response, Token token) throws IOException {

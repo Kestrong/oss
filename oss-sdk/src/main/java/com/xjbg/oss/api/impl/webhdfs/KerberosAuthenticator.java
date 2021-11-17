@@ -6,6 +6,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.ietf.jgss.*;
 import org.slf4j.Logger;
@@ -130,25 +131,25 @@ public class KerberosAuthenticator extends PseudoAuthenticator {
 
     private String userPrincipal;
     private String keyTab;
-    private String url;
     private String servicePrincipal;
     private boolean debug;
     private String krb5;
     private OkHttpClient okHttpClient;
     private Base64 base64 = new Base64(0);
+    private Authenticator fallBackAuthenticator;
 
     public KerberosAuthenticator() {
     }
 
 
-    public KerberosAuthenticator(OkHttpClient okHttpClient, String userPrincipal, String keyTab, String krb5, String url, String servicePrincipal, boolean debug) {
+    public KerberosAuthenticator(OkHttpClient okHttpClient, String userPrincipal, String keyTab, String krb5, String servicePrincipal, boolean debug) {
         this.userPrincipal = userPrincipal;
         this.keyTab = keyTab;
         this.krb5 = krb5;
         this.debug = debug;
         this.servicePrincipal = servicePrincipal;
-        this.url = url;
         this.okHttpClient = okHttpClient;
+        this.fallBackAuthenticator = new PseudoAuthenticator(userPrincipal, okHttpClient);
         if (StringUtils.isNotBlank(krb5)) {
             System.setProperty("java.security.krb5.conf", krb5);
         }
@@ -190,7 +191,7 @@ public class KerberosAuthenticator extends PseudoAuthenticator {
      * @return the fallback {@link Authenticator}.
      */
     protected Authenticator getFallBackAuthenticator() {
-        return new PseudoAuthenticator(userPrincipal, okHttpClient);
+        return fallBackAuthenticator;
     }
 
 
@@ -200,11 +201,12 @@ public class KerberosAuthenticator extends PseudoAuthenticator {
                 .url(url)
                 .method(AUTH_HTTP_METHOD, null)
                 .build();
-        Response response = okHttpClient.newCall(request).execute();
-        if (response.code() == HttpURLConnection.HTTP_UNAUTHORIZED) {
-            String authHeader = response.header(WWW_AUTHENTICATE);
-            negotiate = authHeader != null
-                    && authHeader.trim().startsWith(NEGOTIATE);
+        try (Response response = okHttpClient.newCall(request).execute()) {
+            if (response.code() == HttpURLConnection.HTTP_UNAUTHORIZED) {
+                String authHeader = response.header(WWW_AUTHENTICATE);
+                negotiate = authHeader != null
+                        && authHeader.trim().startsWith(NEGOTIATE);
+            }
         }
         return negotiate;
     }
@@ -256,6 +258,7 @@ public class KerberosAuthenticator extends PseudoAuthenticator {
                         outToken = gssContext.initSecContext(inToken, 0,
                                 inToken.length);
                         if (outToken != null) {
+                            IOUtils.closeQuietly(response, null);
                             response = sendToken(url, outToken);
                         }
 
@@ -266,6 +269,7 @@ public class KerberosAuthenticator extends PseudoAuthenticator {
                             extractToken(response, token);
                         }
                     }
+                    IOUtils.closeQuietly(response, null);
                 } finally {
                     if (gssContext != null) {
                         gssContext.dispose();

@@ -120,7 +120,7 @@ public class OssAutoConfiguration {
         OssProperties.WebHdfsProperties webHdfsProperties = properties.getWebhdfs();
         if (webHdfsProperties.isEnable() && StringUtils.hasText(webHdfsProperties.getUrl())) {
             OkHttpClient okHttpClient = createOkHttp(clientConfig);
-            KerberosAuthenticator kerberosAuthenticator = new KerberosAuthenticator(okHttpClient, webHdfsProperties.getAccessKey(), webHdfsProperties.getSecretKey(), webHdfsProperties.getKrb5(), webHdfsProperties.getUrl(), webHdfsProperties.getServicePrincipal(), webHdfsProperties.isDebug());
+            KerberosAuthenticator kerberosAuthenticator = new KerberosAuthenticator(okHttpClient, webHdfsProperties.getAccessKey(), webHdfsProperties.getSecretKey(), webHdfsProperties.getKrb5(), webHdfsProperties.getServicePrincipal(), webHdfsProperties.isDebug());
             ossTemplate.register(ApiType.WEBHDFS, new WebHdfsApiImpl(okHttpClient, kerberosAuthenticator, webHdfsProperties.getAccessKey(), webHdfsProperties.getSecretKey(), webHdfsProperties.getKrb5(), webHdfsProperties.getUrl(), webHdfsProperties.getDefaultBucket()));
         }
         if (properties.getDefaultApiType() != null) {
