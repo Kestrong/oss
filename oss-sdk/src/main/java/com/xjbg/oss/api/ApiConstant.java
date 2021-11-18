@@ -17,6 +17,8 @@ public final class ApiConstant {
     public static final String OPTIONS = "OPTIONS";
     public static final String TRACE = "TRACE";
 
+    public static final int UNAUTHORIZED = 401;
+    public static final int FORBIDDEN = 403;
     public static final int NOT_FOUND = 404;
 
     public static final String FILESTATUS = "FileStatus";

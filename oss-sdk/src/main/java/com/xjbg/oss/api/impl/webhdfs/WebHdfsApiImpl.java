@@ -17,6 +17,7 @@ import okhttp3.*;
 import okhttp3.internal.Util;
 import okio.BufferedSink;
 import okio.Okio;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.*;
@@ -27,6 +28,7 @@ import java.util.*;
  * @date 2021-09-02 17:04
  */
 public class WebHdfsApiImpl extends AbstractOssApiImpl {
+    private static final byte[] LOCK = new byte[0];
     private String userPrincipal;
     private String keyTab;
     private String url;
@@ -46,23 +48,36 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
         this.authenticator = authenticator;
     }
 
-    protected void ensureValidToken() throws IOException {
-        if (!token.isSet()) {
-            authenticator.authenticate(url, token);
-        } else {
-            long currentTime = System.currentTimeMillis();
-            long tokenExpired = Long.parseLong(token.toString().split("&")[3].split("=")[1]);
-            boolean expired = currentTime > tokenExpired;
-            log.info("[currentTime vs. tokenExpired] [{} vs. {}] [expired:{}]", currentTime, tokenExpired, expired);
-            if (expired) {
-                authenticator.authenticate(url, token);
+    private boolean validToken(String token) {
+        if (StringUtils.isBlank(token)) {
+            return false;
+        }
+        long currentTime = System.currentTimeMillis();
+        long tokenExpired = Long.parseLong(token.split("&")[3].split("=")[1]) - 60 * 5 * 1000;
+        boolean expired = currentTime >= tokenExpired;
+        log.info("[currentTime vs. tokenExpired] [{} vs. {}] [expired:{}]", currentTime, tokenExpired, expired);
+        return !expired;
+    }
+
+    protected String ensureValidToken() throws IOException {
+        String token = this.token.getToken();
+        if (validToken(token)) {
+            return token;
+        }
+        synchronized (LOCK) {
+            token = this.token.getToken();
+            if (validToken(token)) {
+                return token;
             }
+            this.token.set(null);
+            authenticator.authenticate(url, this.token);
+            return this.token.getToken();
         }
     }
 
-    private Map<String, String> tokenHeaders() {
+    private Map<String, String> tokenHeaders() throws IOException {
         Map<String, String> header = new HashMap<>(3);
-        String t = token.getToken();
+        String t = ensureValidToken();
         if (t != null) {
             if (!t.startsWith("\"")) {
                 t = "\"" + t + "\"";
@@ -80,12 +95,7 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
         return urlBuilder;
     }
 
-    private Response execute(String url, String method, RequestBody requestBody) throws IOException {
-        ensureValidToken();
-        OkHttpClient okHttpClient = this.okHttpClient;
-        if (method.equals(ApiConstant.POST) || method.equals(ApiConstant.PUT)) {
-            okHttpClient = okHttpClient.newBuilder().retryOnConnectionFailure(false).build();
-        }
+    private Request buildRequest(String url, String method, RequestBody requestBody) throws IOException {
         Headers.Builder headerBuilder = new Headers.Builder();
         for (Map.Entry<String, String> entry : tokenHeaders().entrySet()) {
             headerBuilder.add(entry.getKey(), entry.getValue());
@@ -96,7 +106,30 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
                 .method(method, requestBody)
                 .build();
         log.info("method:{},headers:{},url:{}", method, request.headers().toMultimap(), url);
-        return okHttpClient.newCall(request).execute();
+        return request;
+    }
+
+    private Response execute(String url, String method, RequestBody requestBody) throws IOException {
+        OkHttpClient okHttpClient = this.okHttpClient;
+        if (method.equals(ApiConstant.POST) || method.equals(ApiConstant.PUT)) {
+            okHttpClient = okHttpClient.newBuilder().retryOnConnectionFailure(false).build();
+        }
+        Request request = buildRequest(url, method, requestBody);
+        Response response = okHttpClient.newCall(request).execute();
+        if (response.code() == ApiConstant.UNAUTHORIZED || response.code() == ApiConstant.FORBIDDEN) {
+            IOUtils.closeQuietly(response, null);
+            synchronized (LOCK) {
+                request = buildRequest(url, method, requestBody);
+                response = okHttpClient.newCall(request).execute();
+                if (response.code() == ApiConstant.UNAUTHORIZED || response.code() == ApiConstant.FORBIDDEN) {
+                    token.set(null);
+                    IOUtils.closeQuietly(response, null);
+                    request = buildRequest(url, method, requestBody);
+                    response = okHttpClient.newCall(request).execute();
+                }
+            }
+        }
+        return response;
     }
 
     private JSONObject validResult(Response response) throws IOException {
