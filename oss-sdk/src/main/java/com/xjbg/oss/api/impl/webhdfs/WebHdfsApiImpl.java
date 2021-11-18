@@ -116,12 +116,12 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
         }
         Request request = buildRequest(url, method, requestBody);
         Response response = okHttpClient.newCall(request).execute();
-        if (response.code() == ApiConstant.UNAUTHORIZED || response.code() == ApiConstant.FORBIDDEN) {
+        if (response.code() == ApiConstant.UNAUTHORIZED) {
             IOUtils.closeQuietly(response, null);
             synchronized (LOCK) {
                 request = buildRequest(url, method, requestBody);
                 response = okHttpClient.newCall(request).execute();
-                if (response.code() == ApiConstant.UNAUTHORIZED || response.code() == ApiConstant.FORBIDDEN) {
+                if (response.code() == ApiConstant.UNAUTHORIZED) {
                     token.set(null);
                     IOUtils.closeQuietly(response, null);
                     request = buildRequest(url, method, requestBody);
