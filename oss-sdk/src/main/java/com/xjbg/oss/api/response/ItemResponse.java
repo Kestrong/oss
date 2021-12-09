@@ -15,7 +15,6 @@ import java.util.Date;
 @Getter
 @Setter
 public class ItemResponse {
-    private String bucket;
     private String objectName;
     private Date lastModified;
     private String etag;
@@ -24,8 +23,7 @@ public class ItemResponse {
     private Owner owner;
     private String type;
 
-    public ItemResponse(String bucket, String objectName, Date lastModified, String etag, long size, String storageClass, Owner owner, String type) {
-        this.bucket = bucket;
+    public ItemResponse(String objectName, Date lastModified, String etag, long size, String storageClass, Owner owner, String type) {
         this.objectName = objectName;
         this.lastModified = lastModified;
         this.etag = etag;
@@ -40,7 +38,7 @@ public class ItemResponse {
     }
 
     public ItemResponse(S3ObjectSummary item) {
-        this(item.getBucketName(), item.getKey(), item.getLastModified(), item.getETag(), item.getSize(), item.getStorageClass(), item.getOwner(), null);
+        this(item.getKey(), item.getLastModified(), item.getETag(), item.getSize(), item.getStorageClass(), item.getOwner(), null);
     }
 
 }

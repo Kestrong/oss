@@ -425,7 +425,7 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
     private void copy(String srcBucket, String srcObject, String dstBucket, String dstObject) {
         List<ItemResponse> itemResponses = listObjects(ListObjectsArgs.builder().bucket(srcBucket + ApiConstant.SLASH + srcObject).build());
         if (itemResponses.isEmpty()) {
-            itemResponses.add(new ItemResponse(srcBucket, srcObject, null, null, 0, null, null, FileType.FILE.getType()));
+            itemResponses.add(new ItemResponse(srcObject, null, null, 0, null, null, FileType.FILE.getType()));
         }
         for (ItemResponse itemResponse : itemResponses) {
             if (FileType.DIRECTORY.getType().equals(itemResponse.getType())) {
@@ -539,7 +539,7 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
                     if (args.getMax() != null && itemResponses.size() >= args.getMax()) {
                         break;
                     }
-                    ItemResponse itemResponse = new ItemResponse(args.getBucket(), currentPath, jsonObject.getDate(ApiConstant.MODIFICATION_TIME),
+                    ItemResponse itemResponse = new ItemResponse(currentPath, jsonObject.getDate(ApiConstant.MODIFICATION_TIME),
                             null, jsonObject.getLongValue("length"), null, new Owner(jsonObject.getString(ApiConstant.GROUP), jsonObject.getString(ApiConstant.OWNER)),
                             fileType.getType());
                     itemResponses.add(itemResponse);

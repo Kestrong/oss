@@ -215,7 +215,7 @@ public class FileSystemApiImpl extends AbstractOssApiImpl {
                 if (StringUtils.isNotBlank(args.getSuffix()) && !object.endsWith(args.getSuffix())) {
                     continue;
                 }
-                responses.add(new ItemResponse(args.getBucket(), object, new Date(f.lastModified()), null, f.length(), null, null, f.isDirectory() ? FileType.DIRECTORY.getType() : FileType.FILE.getType()));
+                responses.add(new ItemResponse(object, new Date(f.lastModified()), null, f.length(), null, null, f.isDirectory() ? FileType.DIRECTORY.getType() : FileType.FILE.getType()));
             }
         }
     }
