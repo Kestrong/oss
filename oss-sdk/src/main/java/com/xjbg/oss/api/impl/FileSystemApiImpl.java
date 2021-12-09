@@ -186,7 +186,7 @@ public class FileSystemApiImpl extends AbstractOssApiImpl {
     @Override
     public List<ItemResponse> listObjects(ListObjectsArgs args) {
         log.info("{}", JSON.toJSONString(args));
-        File file = Paths.get(baseDir, args.getBucket()).toFile();
+        File file = StringUtils.isNotBlank(args.getPrefix()) ? Paths.get(baseDir, args.getBucket(), args.getPrefix()).toFile() : Paths.get(baseDir, args.getBucket()).toFile();
         if (!file.exists()) {
             throw OssExceptionEnum.FILE_NOT_EXIST.getException();
         }
@@ -212,9 +212,6 @@ public class FileSystemApiImpl extends AbstractOssApiImpl {
             if (f.isDirectory() && args.getRecursive()) {
                 listObjects(responses, f, args, object);
             } else {
-                if (StringUtils.isNotBlank(args.getPrefix()) && !object.startsWith(args.getPrefix())) {
-                    continue;
-                }
                 if (StringUtils.isNotBlank(args.getSuffix()) && !object.endsWith(args.getSuffix())) {
                     continue;
                 }
@@ -281,7 +278,7 @@ public class FileSystemApiImpl extends AbstractOssApiImpl {
             File file = new File(fullPath);
             try {
                 if (file.exists()) {
-                    deleteDir(responses, file, args.getBucket());
+                    deleteDir(responses, file);
                 }
             } catch (Exception e) {
                 log.error(e.getMessage(), e);
@@ -290,22 +287,22 @@ public class FileSystemApiImpl extends AbstractOssApiImpl {
         return responses;
     }
 
-    private void deleteDir(List<RemoveObjectResponse> responses, File file, String bucket) {
+    private void deleteDir(List<RemoveObjectResponse> responses, File file) {
         if (file.isFile()) {
             boolean delete = file.delete();
             if (delete) {
-                responses.add(new RemoveObjectResponse(bucket, Paths.get(baseDir, bucket).relativize(file.toPath()).toString(), null));
+                responses.add(new RemoveObjectResponse(null, file.getAbsolutePath(), null));
             }
         } else {
             File[] files = file.listFiles();
             if (files != null && files.length > 0) {
                 for (File f : files) {
-                    deleteDir(responses, f, bucket);
+                    deleteDir(responses, f);
                 }
             }
             boolean delete = file.delete();
-            if (!delete) {
-                responses.add(new RemoveObjectResponse(bucket, Paths.get(baseDir, bucket).relativize(file.toPath()).toString(), null));
+            if (delete) {
+                responses.add(new RemoveObjectResponse(null, file.getAbsolutePath(), null));
             }
         }
     }

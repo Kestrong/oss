@@ -502,21 +502,18 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
         }
     }
 
-    @Override
-    public List<ItemResponse> listObjects(ListObjectsArgs args) {
-        log.info("listObjects:{}", JSON.toJSONString(args));
-        String url = defaultUrlBuilder().bucket(args.getBucket())
+    private void listObjects(List<ItemResponse> itemResponses, ListObjectsArgs args, String parentObject, String parentPath) {
+        String url = defaultUrlBuilder().bucket(args.getBucket()).object(parentObject)
                 .params(Collections.singletonMap(ApiConstant.OP, ApiConstant.LISTSTATUS)).build();
         try (Response response = execute(url, ApiConstant.GET, null)) {
             JSONObject result = validResult(response);
-            List<ItemResponse> itemResponses = new ArrayList<>();
             JSONObject fileStatuses = result.getJSONObject(ApiConstant.FILESTATUSES);
             if (fileStatuses == null) {
-                return itemResponses;
+                return;
             }
             JSONArray fileStatus = fileStatuses.getJSONArray(ApiConstant.FILESTATUS);
             if (fileStatus == null || fileStatus.isEmpty()) {
-                return itemResponses;
+                return;
             }
             for (int i = 0, n = fileStatus.size(); i < n; i++) {
                 JSONObject jsonObject = fileStatus.getJSONObject(i);
@@ -524,25 +521,42 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
                 if (StringUtils.isBlank(path)) {
                     continue;
                 }
-                if (StringUtils.isNotBlank(args.getPrefix()) && !path.startsWith(args.getPrefix())) {
-                    continue;
+                if (path.startsWith(ApiConstant.SLASH)) {
+                    path = path.substring(1);
                 }
-                if (StringUtils.isNotBlank(args.getSuffix()) && !path.endsWith(args.getSuffix())) {
-                    continue;
+                if (path.endsWith(ApiConstant.SLASH)) {
+                    path = path.substring(0, path.length() - 1);
                 }
-                if (args.getMax() != null && itemResponses.size() >= args.getMax()) {
-                    break;
+                String currentPath = StringUtils.isBlank(parentPath) ? path : parentPath + ApiConstant.SLASH + path;
+                FileType fileType = FileType.getType(jsonObject.getString(ApiConstant.TYPE));
+                if (FileType.DIRECTORY.equals(fileType) && args.getRecursive()) {
+                    String nextObject = StringUtils.isBlank(parentObject) ? path : parentObject + ApiConstant.SLASH + path;
+                    listObjects(itemResponses, args, nextObject, currentPath);
+                } else {
+                    if (StringUtils.isNotBlank(args.getSuffix()) && !path.endsWith(args.getSuffix())) {
+                        continue;
+                    }
+                    if (args.getMax() != null && itemResponses.size() >= args.getMax()) {
+                        break;
+                    }
+                    ItemResponse itemResponse = new ItemResponse(args.getBucket(), currentPath, jsonObject.getDate(ApiConstant.MODIFICATION_TIME),
+                            null, jsonObject.getLongValue("length"), null, new Owner(jsonObject.getString(ApiConstant.GROUP), jsonObject.getString(ApiConstant.OWNER)),
+                            fileType.getType());
+                    itemResponses.add(itemResponse);
                 }
-                ItemResponse itemResponse = new ItemResponse(args.getBucket(), path, jsonObject.getDate(ApiConstant.MODIFICATION_TIME),
-                        null, jsonObject.getLongValue("length"), null, new Owner(jsonObject.getString(ApiConstant.GROUP), jsonObject.getString(ApiConstant.OWNER)),
-                        FileType.getType(jsonObject.getString(ApiConstant.TYPE)).getType());
-                itemResponses.add(itemResponse);
             }
-            return itemResponses;
         } catch (Exception e) {
             log.error(e.getMessage(), e);
             throw OssExceptionEnum.GET_OBJECT_ERROR.getException();
         }
+    }
+
+    @Override
+    public List<ItemResponse> listObjects(ListObjectsArgs args) {
+        log.info("listObjects:{}", JSON.toJSONString(args));
+        List<ItemResponse> itemResponses = new ArrayList<>();
+        listObjects(itemResponses, args, args.getPrefix(), "");
+        return itemResponses;
     }
 
     @Override

@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.*;
 import com.xjbg.oss.OssConstants;
+import com.xjbg.oss.api.ApiConstant;
 import com.xjbg.oss.api.request.*;
 import com.xjbg.oss.api.response.*;
 import com.xjbg.oss.enums.ApiType;
@@ -17,6 +18,7 @@ import java.io.*;
 import java.net.URL;
 import java.sql.Date;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -267,7 +269,7 @@ public class S3ApiImpl extends AbstractOssApiImpl {
                         .recursive(Boolean.TRUE)
                         .build();
                 List<ItemResponse> itemResponses = listObjects(listObjectsRequest);
-                itemResponses.forEach(x -> objectPairs.add(new ImmutablePair<>(x.getObjectName(), x.getObjectName().replace(srcObject, object))));
+                itemResponses.forEach(x -> objectPairs.add(new ImmutablePair<>(srcObject + x.getObjectName(), object + x.getObjectName())));
             } else {
                 objectPairs.add(new ImmutablePair<>(srcObject, object));
             }
@@ -350,15 +352,28 @@ public class S3ApiImpl extends AbstractOssApiImpl {
         }
     }
 
+    private String formatPath(String path, boolean endSlash) {
+        if (StringUtils.isBlank(path)) {
+            return path;
+        }
+        String formatPath = Arrays.stream(path.replace(ApiConstant.BACK_SLASH, ApiConstant.SLASH)
+                .split(ApiConstant.SLASH)).filter(StringUtils::isNotBlank).collect(Collectors.joining(ApiConstant.SLASH));
+        if (endSlash) {
+            formatPath = formatPath + ApiConstant.SLASH;
+        }
+        return formatPath;
+    }
+
     @Override
     public List<ItemResponse> listObjects(ListObjectsArgs args) {
         log.info("{}", JSON.toJSONString(args));
         try {
+            String formatPrefix = formatPath(args.getPrefix(), true);
             ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
                     .withBucketName(getTopPathAsBucket(args.getBucket()))
                     .withDelimiter(args.getDelimiter())
                     .withEncodingType(args.getUseUrlEncoding() ? "url" : null)
-                    .withPrefix(args.getPrefix())
+                    .withPrefix(formatPrefix)
                     .withExpectedBucketOwner(args.getExpectedBucketOwner())
                     .withMaxKeys(args.getMax())
                     .withMarker(StringUtils.isNotBlank(args.getMaker()) ? args.getMaker() : args.getSuffix());
@@ -370,7 +385,19 @@ public class S3ApiImpl extends AbstractOssApiImpl {
             List<S3ObjectSummary> objectSummaries = objectListing.getObjectSummaries();
             for (S3ObjectSummary s3ObjectSummary : objectSummaries) {
                 ItemResponse itemResponse = new ItemResponse(s3ObjectSummary);
-                itemResponses.add(itemResponse);
+                String objectName = itemResponse.getObjectName();
+                boolean hasPrefix = StringUtils.isNotBlank(formatPrefix);
+                if (hasPrefix) {
+                    objectName = itemResponse.getObjectName().replaceFirst(formatPrefix, "");
+                }
+                if (hasPrefix && StringUtils.isBlank(objectName)) {
+                    objectName = formatPrefix;
+                }
+                objectName = formatPath(objectName, false);
+                if (StringUtils.isNotBlank(objectName)) {
+                    itemResponse.setObjectName(objectName);
+                    itemResponses.add(itemResponse);
+                }
             }
             return itemResponses;
         } catch (Exception e) {
@@ -498,7 +525,7 @@ public class S3ApiImpl extends AbstractOssApiImpl {
                             .prefix(object)
                             .recursive(Boolean.TRUE).build();
                     List<ItemResponse> itemResponses = listObjects(listObjectsRequest);
-                    itemResponses.forEach(x -> deleteObjects.add(new DeleteObjectsRequest.KeyVersion(getValidObject(args.getBucket(), x.getObjectName()))));
+                    itemResponses.forEach(x -> deleteObjects.add(new DeleteObjectsRequest.KeyVersion(getValidObject(args.getBucket(), object + ApiConstant.SLASH + x.getObjectName()))));
                 }
                 deleteObjects.add(new DeleteObjectsRequest.KeyVersion(getValidObject(args.getBucket(), object)));
             }

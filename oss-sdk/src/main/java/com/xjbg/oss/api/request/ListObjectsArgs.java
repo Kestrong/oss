@@ -36,7 +36,7 @@ public class ListObjectsArgs extends BucketArgs {
 
     private String delimiter = "";
 
-    private Boolean useUrlEncoding = true;
+    private Boolean useUrlEncoding = false;
 
     public String getDelimiter() {
         if (recursive) {
