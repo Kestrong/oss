@@ -268,12 +268,9 @@ public class FileSystemApiImpl extends AbstractOssApiImpl {
     @Override
     public List<RemoveObjectResponse> removeObjects(RemoveObjectArgs args) {
         log.info("{}", JSON.toJSONString(args));
-        List<String> objects = args.getObjects();
-        if (objects == null || objects.isEmpty()) {
-            return Collections.emptyList();
-        }
+        List<String> deleteObjects = filterObjects(args.getObjects());
         List<RemoveObjectResponse> responses = new ArrayList<>();
-        for (String object : objects) {
+        for (String object : deleteObjects) {
             String fullPath = Paths.get(baseDir, args.getBucket(), object).toString();
             File file = new File(fullPath);
             try {

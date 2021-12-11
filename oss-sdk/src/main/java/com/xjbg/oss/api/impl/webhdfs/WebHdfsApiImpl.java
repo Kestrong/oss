@@ -562,11 +562,9 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
     @Override
     public List<RemoveObjectResponse> removeObjects(RemoveObjectArgs args) {
         log.info("removeObjects:{}", JSON.toJSONString(args));
-        if (args.getObjects() == null || args.getObjects().isEmpty()) {
-            args.setObjects(Collections.singletonList(null));
-        }
+        List<String> deleteObjects = filterObjects(args.getObjects());
         List<RemoveObjectResponse> responses = new ArrayList<>();
-        for (String object : args.getObjects()) {
+        for (String object : deleteObjects) {
             try {
                 boolean remove = remove(args.getBucket(), object);
                 if (remove) {

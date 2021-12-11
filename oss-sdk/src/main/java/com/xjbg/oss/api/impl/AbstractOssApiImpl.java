@@ -1,5 +1,6 @@
 package com.xjbg.oss.api.impl;
 
+import com.xjbg.oss.api.ApiConstant;
 import com.xjbg.oss.api.OssApi;
 import com.xjbg.oss.api.response.BucketResponse;
 import com.xjbg.oss.exception.OssExceptionEnum;
@@ -14,6 +15,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -86,4 +88,11 @@ public abstract class AbstractOssApiImpl implements OssApi {
             file.createNewFile();
         }
     }
+
+    protected List<String> filterObjects(List<String> objects) {
+        return Optional.ofNullable(objects).orElse(Collections.emptyList()).stream()
+                .filter(x -> StringUtils.isNotBlank(x) && !x.equals(ApiConstant.SLASH) && !x.equals(ApiConstant.BACK_SLASH))
+                .distinct().collect(Collectors.toList());
+    }
+
 }

@@ -87,13 +87,17 @@ public class S3ApiImpl extends AbstractOssApiImpl {
                 begin = true;
             }
         }
+        String result = sb.toString();
         if (log.isDebugEnabled()) {
-            log.debug(sb.toString());
+            log.debug(result);
         }
         if (fullName.endsWith(SLASH)) {
-            return sb.toString();
+            return result;
         }
-        return sb.substring(0, sb.length() - 1);
+        if (StringUtils.isNotBlank(result)) {
+            return result.substring(0, result.length() - 1);
+        }
+        return result;
     }
 
     @Override
@@ -368,7 +372,8 @@ public class S3ApiImpl extends AbstractOssApiImpl {
     public List<ItemResponse> listObjects(ListObjectsArgs args) {
         log.info("{}", JSON.toJSONString(args));
         try {
-            String formatPrefix = formatPath(args.getPrefix(), true);
+            String formatPrefix = getValidObject(args.getBucket(), args.getPrefix());
+            formatPrefix = formatPath(formatPrefix, true);
             ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
                     .withBucketName(getTopPathAsBucket(args.getBucket()))
                     .withDelimiter(args.getDelimiter())
@@ -513,10 +518,7 @@ public class S3ApiImpl extends AbstractOssApiImpl {
     public List<RemoveObjectResponse> removeObjects(RemoveObjectArgs args) {
         log.info("{}", JSON.toJSONString(args));
         try {
-            List<String> objects = args.getObjects();
-            if (objects == null) {
-                objects = Collections.emptyList();
-            }
+            List<String> objects = filterObjects(args.getObjects());
             List<DeleteObjectsRequest.KeyVersion> deleteObjects = new ArrayList<>();
             for (String object : objects) {
                 if (object.endsWith(SLASH)) {
