@@ -11,7 +11,12 @@ import lombok.Setter;
 @Getter
 @Setter
 public class UploadObjectArgs extends ObjectWriteArgs {
+    private String fileName;
     private Long partSize = OssConstants.MIN_PART_SIZE;
+    /**
+     * 递归查找
+     */
+    private boolean recursive = false;
 
     public static Builder builder() {
         return new Builder();
@@ -37,6 +42,17 @@ public class UploadObjectArgs extends ObjectWriteArgs {
         public Builder partSize(Long partSize) {
             validatePartSize(partSize);
             operations.add(args -> args.partSize = partSize);
+            return this;
+        }
+
+        public Builder recursive(boolean recursive) {
+            operations.add(args -> args.recursive = recursive);
+            return this;
+        }
+
+        public Builder fileName(String fileName) {
+            validateNotEmptyString(fileName, "fileName");
+            operations.add(args -> args.fileName = fileName);
             return this;
         }
     }

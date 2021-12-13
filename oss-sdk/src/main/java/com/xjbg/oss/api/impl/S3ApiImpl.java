@@ -8,6 +8,7 @@ import com.xjbg.oss.api.ApiConstant;
 import com.xjbg.oss.api.request.*;
 import com.xjbg.oss.api.response.*;
 import com.xjbg.oss.enums.ApiType;
+import com.xjbg.oss.enums.FileType;
 import com.xjbg.oss.exception.OssExceptionEnum;
 import lombok.NonNull;
 import org.apache.commons.lang3.StringUtils;
@@ -266,14 +267,16 @@ public class S3ApiImpl extends AbstractOssApiImpl {
             String object = getValidObject(args.getBucket(), StringUtils.isNotBlank(args.getObject()) ? args.getObject() : args.getSrcObject());
             List<ImmutablePair<String, String>> objectPairs = new ArrayList<>();
             //deal with directory
-            if (srcObject.endsWith(SLASH)) {
+            if (args.isRecursive()) {
+                final String srcObjectWithSlash = srcObject.endsWith(ApiConstant.SLASH) ? srcObject : srcObject + ApiConstant.SLASH;
+                final String objectWithSlash = object.endsWith(ApiConstant.SLASH) ? object : object + ApiConstant.SLASH;
                 ListObjectsArgs listObjectsRequest = ListObjectsArgs.builder()
                         .bucket(args.getSrcBucket())
                         .prefix(srcObject)
                         .recursive(Boolean.TRUE)
                         .build();
                 List<ItemResponse> itemResponses = listObjects(listObjectsRequest);
-                itemResponses.forEach(x -> objectPairs.add(new ImmutablePair<>(srcObject + x.getObjectName(), object + x.getObjectName())));
+                itemResponses.forEach(x -> objectPairs.add(new ImmutablePair<>(srcObjectWithSlash + x.getObjectName(), objectWithSlash + x.getObjectName())));
             } else {
                 objectPairs.add(new ImmutablePair<>(srcObject, object));
             }
@@ -294,10 +297,12 @@ public class S3ApiImpl extends AbstractOssApiImpl {
                 s3Client.copyObject(copyObjectRequest);
             }
             if (args.getDelete()) {
-                RemoveObjectArgs removeObjectRequest = new RemoveObjectArgs();
-                removeObjectRequest.setBucket(srcBucket);
                 Collections.reverse(objectPairs);
-                removeObjectRequest.setObjects(objectPairs.stream().map(ImmutablePair::getLeft).collect(Collectors.toList()));
+                RemoveObjectArgs removeObjectRequest = RemoveObjectArgs.builder()
+                        .bucket(srcBucket)
+                        .objects(objectPairs.stream().map(ImmutablePair::getLeft).collect(Collectors.toList()))
+                        .recursive(args.isRecursive())
+                        .build();
                 removeObjects(removeObjectRequest);
             }
             return new CopyObjectResponse(args.getSrcBucket(), args.getBucket(), s3Client.getRegionName(), args.getSrcObject(), args.getObject());
@@ -345,7 +350,7 @@ public class S3ApiImpl extends AbstractOssApiImpl {
             try (InputStream inputStream = new BufferedInputStream(downloadResult.getS3Object().getObjectContent());
                  OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(args.getFileName()))) {
                 int index;
-                byte[] bytes = new byte[1024];
+                byte[] bytes = new byte[OssConstants.DEFUALT_BUFFER_SIZE];
                 while ((index = inputStream.read(bytes)) != -1) {
                     outputStream.write(bytes, 0, index);
                 }
@@ -373,37 +378,53 @@ public class S3ApiImpl extends AbstractOssApiImpl {
         log.info("{}", JSON.toJSONString(args));
         try {
             String formatPrefix = getValidObject(args.getBucket(), args.getPrefix());
-            formatPrefix = formatPath(formatPrefix, true);
-            ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
+            formatPrefix = formatPath(formatPrefix, false);
+            ListObjectsV2Request listObjectsRequest = new ListObjectsV2Request()
                     .withBucketName(getTopPathAsBucket(args.getBucket()))
                     .withDelimiter(args.getDelimiter())
+                    .withMaxKeys(2)
                     .withEncodingType(args.getUseUrlEncoding() ? "url" : null)
                     .withPrefix(formatPrefix)
-                    .withExpectedBucketOwner(args.getExpectedBucketOwner())
-                    .withMaxKeys(args.getMax())
-                    .withMarker(StringUtils.isNotBlank(args.getMaker()) ? args.getMaker() : args.getSuffix());
-            ObjectListing objectListing = s3Client.listObjects(listObjectsRequest);
-            if (objectListing == null || objectListing.getObjectSummaries() == null) {
-                return Collections.emptyList();
-            }
+                    .withExpectedBucketOwner(args.getExpectedBucketOwner());
             List<ItemResponse> itemResponses = new ArrayList<>();
-            List<S3ObjectSummary> objectSummaries = objectListing.getObjectSummaries();
-            for (S3ObjectSummary s3ObjectSummary : objectSummaries) {
-                ItemResponse itemResponse = new ItemResponse(s3ObjectSummary);
-                String objectName = itemResponse.getObjectName();
-                boolean hasPrefix = StringUtils.isNotBlank(formatPrefix);
-                if (hasPrefix) {
-                    objectName = itemResponse.getObjectName().replaceFirst(formatPrefix, "");
+            ListObjectsV2Result objectListing;
+            LOOP:
+            do {
+                objectListing = s3Client.listObjectsV2(listObjectsRequest);
+                if (objectListing == null) {
+                    break;
                 }
-                if (hasPrefix && StringUtils.isBlank(objectName)) {
-                    objectName = formatPrefix;
-                }
-                objectName = formatPath(objectName, false);
-                if (StringUtils.isNotBlank(objectName)) {
-                    itemResponse.setObjectName(objectName);
+                for (String commonPrefix : objectListing.getCommonPrefixes()) {
+                    if (args.getMax() != null && itemResponses.size() >= args.getMax()) {
+                        break LOOP;
+                    }
+                    ItemResponse itemResponse = new ItemResponse(commonPrefix, null, null, 0, null, null, FileType.DIRECTORY.getType());
                     itemResponses.add(itemResponse);
                 }
-            }
+                for (S3ObjectSummary s3ObjectSummary : objectListing.getObjectSummaries()) {
+                    if (args.getMax() != null && itemResponses.size() >= args.getMax()) {
+                        break LOOP;
+                    }
+                    ItemResponse itemResponse = new ItemResponse(s3ObjectSummary);
+                    String objectName = itemResponse.getObjectName();
+                    if (StringUtils.isNotBlank(args.getSuffix()) && !objectName.endsWith(args.getSuffix())) {
+                        continue;
+                    }
+                    boolean hasPrefix = StringUtils.isNotBlank(formatPrefix);
+                    if (hasPrefix) {
+                        objectName = itemResponse.getObjectName().replaceFirst(formatPrefix, "");
+                    }
+                    if (hasPrefix && StringUtils.isBlank(objectName)) {
+                        objectName = formatPrefix;
+                    }
+                    objectName = formatPath(objectName, false);
+                    if (StringUtils.isNotBlank(objectName)) {
+                        itemResponse.setObjectName(objectName);
+                        itemResponses.add(itemResponse);
+                    }
+                }
+                listObjectsRequest.setContinuationToken(objectListing.getNextContinuationToken());
+            } while (objectListing.isTruncated());
             return itemResponses;
         } catch (Exception e) {
             log.error(e.getMessage(), e);
@@ -422,94 +443,123 @@ public class S3ApiImpl extends AbstractOssApiImpl {
         }
     }
 
-    @Override
-    public PutObjectResponse putObject(PutObjectArgs args) {
-        log.info("{}", JSON.toJSONString(args));
-        try (InputStream inputStream = args.getInputStream()) {
-            String bucket = getTopPathAsBucket(args.getBucket());
-            if (autoCreateBucket) {
-                makeBucket(bucket);
+    private long getAvailableSize(Object data, long expectedReadSize)
+            throws IOException {
+
+        BufferedInputStream stream = (BufferedInputStream) data;
+        stream.mark((int) expectedReadSize);
+
+        byte[] buf = new byte[16384]; // 16KiB buffer for optimization
+        long totalBytesRead = 0;
+        while (totalBytesRead < expectedReadSize) {
+            long bytesToRead = expectedReadSize - totalBytesRead;
+            if (bytesToRead > buf.length) {
+                bytesToRead = buf.length;
             }
-            ObjectMetadata objectMetadata = new ObjectMetadata();
-            objectMetadata.setContentType(args.getContentType());
-            objectMetadata.setContentLength(args.getContentLength());
-            String object = getValidObject(args.getBucket(), args.getObject());
-            PutObjectRequest putObjectRequest = new PutObjectRequest(bucket, object, inputStream, objectMetadata);
-            PutObjectResult putObjectResult = s3Client.putObject(putObjectRequest);
-            PutObjectResponse putObjectResponse = new PutObjectResponse(bucket, s3Client.getRegionName(), object);
-            putObjectResponse.setEtag(putObjectResult.getETag());
-            putObjectResponse.setExpirationTime(putObjectResult.getExpirationTime());
-            putObjectResponse.setExpirationTimeRuleId(putObjectResult.getExpirationTimeRuleId());
-            putObjectResponse.setRequesterCharged(putObjectResult.isRequesterCharged());
-            putObjectResponse.setVersionId(putObjectResult.getVersionId());
-            return putObjectResponse;
-        } catch (Exception e) {
-            log.error(e.getMessage(), e);
-            throw OssExceptionEnum.PUT_OBJECT_ERROR.getException();
+
+            int bytesRead = stream.read(buf, 0, (int) bytesToRead);
+            if (bytesRead < 0) {
+                break; // reached EOF
+            }
+
+            totalBytesRead += bytesRead;
         }
+
+        stream.reset();
+        return totalBytesRead;
     }
 
     @Override
-    public ObjectWriteResponse uploadObject(UploadObjectArgs args) {
-        //todo 优化content length和part size设置与计算
+    public PutObjectResponse putObject(PutObjectArgs args) {
         log.info("{}", JSON.toJSONString(args));
-        if (args.getInputStream() == null) {
-            throw OssExceptionEnum.FILE_NOT_EXIST.getException();
-        }
-        try {
-            String bucket = getTopPathAsBucket(args.getBucket());
+        String uploadId = null;
+        String bucket = getTopPathAsBucket(args.getBucket());
+        String object = getValidObject(args.getBucket(), args.getObject());
+
+        try (InputStream inputStream = args.getInputStream()) {
             if (autoCreateBucket) {
                 makeBucket(bucket);
             }
-            List<PartETag> partETags = new ArrayList<>();
 
-            // Initiate the multipart upload.
-            String object = getValidObject(args.getBucket(), args.getObject());
-            InitiateMultipartUploadRequest initRequest = new InitiateMultipartUploadRequest(bucket, object);
-            InitiateMultipartUploadResult initResponse = s3Client.initiateMultipartUpload(initRequest);
+            List<PartETag> parts = new ArrayList<>();
+            long objectSize = args.getContentLength();
+            long partSize = Math.min(Math.max(args.getPartSize(), OssConstants.MIN_PART_SIZE), OssConstants.MAX_PART_SIZE);
+            int partCount = objectSize <= 0 ? -1 : (int) Math.ceil((double) objectSize / partSize);
+            long uploadedSize = 0L;
+            for (int partNumber = 1; partNumber <= partCount || partCount < 0; partNumber++) {
+                long availableSize = partSize;
+                if (partCount > 0) {
+                    if (partNumber == partCount) {
+                        availableSize = objectSize - uploadedSize;
+                    }
+                } else {
+                    availableSize = getAvailableSize(inputStream, partSize + 1);
 
-            // Upload the file parts.
-            long contentLength = args.getContentLength();
-            long partSize = args.getPartSize();
-            if (partSize <= 0) {
-                partSize = OssConstants.MIN_PART_SIZE;
-            }
-            long filePosition = 0;
-            for (int i = 1; filePosition < contentLength; i++) {
-                // Because the last part could be less than 5 MB, adjust the part size as needed.
-                partSize = Math.min(partSize, (contentLength - filePosition));
+                    // If availableSize is less or equal to partSize, then we have reached last
+                    // part.
+                    if (availableSize <= partSize) {
+                        partCount = partNumber;
+                    } else {
+                        availableSize = partSize;
+                    }
+                }
+
+                if (partCount == 1) {
+                    ObjectMetadata objectMetadata = new ObjectMetadata();
+                    objectMetadata.setContentType(args.getContentType());
+                    objectMetadata.setContentLength(availableSize);
+                    PutObjectRequest putObjectRequest = new PutObjectRequest(bucket, object, inputStream, objectMetadata);
+                    PutObjectResult putObjectResult = s3Client.putObject(putObjectRequest);
+                    PutObjectResponse putObjectResponse = new PutObjectResponse(bucket, s3Client.getRegionName(), object);
+                    putObjectResponse.setEtag(putObjectResult.getETag());
+                    putObjectResponse.setExpirationTime(putObjectResult.getExpirationTime());
+                    putObjectResponse.setExpirationTimeRuleId(putObjectResult.getExpirationTimeRuleId());
+                    putObjectResponse.setRequesterCharged(putObjectResult.isRequesterCharged());
+                    putObjectResponse.setVersionId(putObjectResult.getVersionId());
+                    return putObjectResponse;
+                }
+
+                if (uploadId == null) {
+                    // Initiate the multipart upload.
+                    InitiateMultipartUploadRequest initRequest = new InitiateMultipartUploadRequest(bucket, object);
+                    InitiateMultipartUploadResult initResponse = s3Client.initiateMultipartUpload(initRequest);
+                    uploadId = initResponse.getUploadId();
+                }
 
                 // Create the request to upload a part.
                 UploadPartRequest uploadRequest = new UploadPartRequest()
                         .withBucketName(bucket)
                         .withKey(object)
-                        .withUploadId(initResponse.getUploadId())
-                        .withPartNumber(i)
-                        .withFileOffset(filePosition)
-                        .withInputStream(args.getInputStream())
-                        .withPartSize(partSize);
+                        .withUploadId(uploadId)
+                        .withPartNumber(partNumber)
+                        .withInputStream(inputStream)
+                        .withPartSize(availableSize);
 
                 // Upload the part and add the response's ETag to our list.
                 UploadPartResult uploadResult = s3Client.uploadPart(uploadRequest);
-                partETags.add(uploadResult.getPartETag());
-
-                filePosition += partSize;
+                parts.add(uploadResult.getPartETag());
+                uploadedSize += availableSize;
             }
 
             // Complete the multipart upload.
             CompleteMultipartUploadRequest compRequest = new CompleteMultipartUploadRequest(bucket, object,
-                    initResponse.getUploadId(), partETags);
+                    uploadId, parts);
             CompleteMultipartUploadResult completeMultipartUploadResult = s3Client.completeMultipartUpload(compRequest);
+            log.info("uploadedSize:{}", uploadedSize);
 
-            ObjectWriteResponse objectWriteResponse = new ObjectWriteResponse();
-            objectWriteResponse.setEtag(completeMultipartUploadResult.getETag());
-            objectWriteResponse.setExpirationTime(completeMultipartUploadResult.getExpirationTime());
-            objectWriteResponse.setExpirationTimeRuleId(completeMultipartUploadResult.getExpirationTimeRuleId());
-            objectWriteResponse.setVersionId(completeMultipartUploadResult.getVersionId());
-            objectWriteResponse.setRequesterCharged(completeMultipartUploadResult.isRequesterCharged());
-            return objectWriteResponse;
+            PutObjectResponse putObjectResponse = new PutObjectResponse(bucket, s3Client.getRegionName(), object);
+            putObjectResponse.setEtag(completeMultipartUploadResult.getETag());
+            putObjectResponse.setExpirationTime(completeMultipartUploadResult.getExpirationTime());
+            putObjectResponse.setExpirationTimeRuleId(completeMultipartUploadResult.getExpirationTimeRuleId());
+            putObjectResponse.setRequesterCharged(completeMultipartUploadResult.isRequesterCharged());
+            putObjectResponse.setVersionId(completeMultipartUploadResult.getVersionId());
+            return putObjectResponse;
         } catch (Exception e) {
             log.error(e.getMessage(), e);
+            if (uploadId != null) {
+                AbortMultipartUploadRequest abortMultipartUploadRequest = new AbortMultipartUploadRequest(bucket, object, uploadId);
+                s3Client.abortMultipartUpload(abortMultipartUploadRequest);
+            }
             throw OssExceptionEnum.PUT_OBJECT_ERROR.getException();
         }
     }
@@ -521,15 +571,16 @@ public class S3ApiImpl extends AbstractOssApiImpl {
             List<String> objects = filterObjects(args.getObjects());
             List<DeleteObjectsRequest.KeyVersion> deleteObjects = new ArrayList<>();
             for (String object : objects) {
-                if (object.endsWith(SLASH)) {
+                if (args.isRecursive()) {
                     ListObjectsArgs listObjectsRequest = ListObjectsArgs.builder()
                             .bucket(args.getBucket())
                             .prefix(object)
                             .recursive(Boolean.TRUE).build();
                     List<ItemResponse> itemResponses = listObjects(listObjectsRequest);
                     itemResponses.forEach(x -> deleteObjects.add(new DeleteObjectsRequest.KeyVersion(getValidObject(args.getBucket(), object + ApiConstant.SLASH + x.getObjectName()))));
+                } else {
+                    deleteObjects.add(new DeleteObjectsRequest.KeyVersion(getValidObject(args.getBucket(), object)));
                 }
-                deleteObjects.add(new DeleteObjectsRequest.KeyVersion(getValidObject(args.getBucket(), object)));
             }
             String bucket = getTopPathAsBucket(args.getBucket());
             DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucket);

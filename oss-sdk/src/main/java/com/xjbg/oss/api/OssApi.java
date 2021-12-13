@@ -161,7 +161,7 @@ public interface OssApi {
      * @param args {@link UploadObjectArgs}
      * @return
      */
-    ObjectWriteResponse uploadObject(UploadObjectArgs args);
+    List<PutObjectResponse> uploadObject(UploadObjectArgs args);
 
     /**
      * 删除文件

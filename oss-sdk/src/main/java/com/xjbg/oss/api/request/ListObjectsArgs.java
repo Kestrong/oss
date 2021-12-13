@@ -27,11 +27,6 @@ public class ListObjectsArgs extends BucketArgs {
      */
     private Boolean recursive = false;
 
-    /**
-     * 同suffix
-     */
-    private String maker;
-
     private String expectedBucketOwner;
 
     private String delimiter = "";
@@ -67,11 +62,6 @@ public class ListObjectsArgs extends BucketArgs {
 
         public Builder recursive(boolean recursive) {
             operations.add(args -> args.recursive = recursive);
-            return this;
-        }
-
-        public Builder maker(String maker) {
-            operations.add(args -> args.maker = maker);
             return this;
         }
 

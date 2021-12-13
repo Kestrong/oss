@@ -20,7 +20,8 @@ import okio.Okio;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.*;
 
 /**
@@ -258,17 +259,6 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
     }
 
     @Override
-    public void setBucketPolicy(SetBucketPolicyArgs args) {
-        log.warn("unsupported operation");
-    }
-
-    @Override
-    public String getBucketPolicy(GetBucketPolicyArgs args) {
-        log.warn("unsupported operation");
-        return null;
-    }
-
-    @Override
     public boolean bucketExist(String bucket) {
         checkBucketName(bucket);
         try {
@@ -279,9 +269,9 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
         }
     }
 
-    private boolean remove(String bucket, String object) throws Exception {
+    private boolean remove(String bucket, String object, boolean recursive) throws Exception {
         Map<String, String> param = new HashMap<>();
-        param.put("recursive", "true");
+        param.put("recursive", Boolean.toString(recursive));
         param.put(ApiConstant.OP, ApiConstant.DELETE);
         String url = defaultUrlBuilder().bucket(bucket).object(object).params(param).build();
         try (Response response = execute(url, ApiConstant.DELETE, null)) {
@@ -293,7 +283,7 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
     public void removeBucket(String bucket) {
         checkBucketName(bucket);
         try {
-            remove(bucket, null);
+            remove(bucket, null, false);
         } catch (Exception e) {
             log.error(e.getMessage(), e);
             throw OssExceptionEnum.BUCKET_OPERATION_ERROR.getException();
@@ -371,7 +361,7 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
 
     @Override
     public PutObjectResponse putObject(PutObjectArgs args) {
-        log.info("putObject:{}", JSON.toJSONString(args));
+        log.info("{}", JSON.toJSONString(args));
         Map<String, String> params = new HashMap<>();
         params.put("overwrite", "true");
         params.put("permission", "777");
@@ -410,30 +400,28 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
         }
     }
 
-    @Override
-    public ObjectWriteResponse uploadObject(UploadObjectArgs args) {
-        log.info("uploadObject:{}", JSON.toJSONString(args));
-        return putObject(PutObjectArgs.builder()
-                .bucket(args.getBucket())
-                .object(args.getObject())
-                .contentLength(args.getContentLength())
-                .contentType(args.getContentType())
-                .inputStream(args.getInputStream())
-                .build());
-    }
-
-    private void copy(String srcBucket, String srcObject, String dstBucket, String dstObject) {
-        List<ItemResponse> itemResponses = listObjects(ListObjectsArgs.builder().bucket(srcBucket + ApiConstant.SLASH + srcObject).build());
+    private void copy(String srcPath, String dstPath, boolean recursive) {
+        if (StringUtils.isBlank(srcPath) || StringUtils.isBlank(dstPath) || srcPath.equals(dstPath)) {
+            return;
+        }
+        List<ItemResponse> itemResponses = listObjects(ListObjectsArgs.builder().bucket(srcPath).build());
         if (itemResponses.isEmpty()) {
-            itemResponses.add(new ItemResponse(srcObject, null, null, 0, null, null, FileType.FILE.getType()));
+            itemResponses.add(new ItemResponse("", null, null, 0, null, null, FileType.FILE.getType()));
         }
         for (ItemResponse itemResponse : itemResponses) {
-            if (FileType.DIRECTORY.getType().equals(itemResponse.getType())) {
-                copy(srcBucket, srcObject + ApiConstant.SLASH + itemResponse.getObjectName(), dstBucket, dstObject + ApiConstant.SLASH + itemResponse.getObjectName());
+            if (recursive && FileType.DIRECTORY.getType().equals(itemResponse.getType())) {
+                copy(srcPath + ApiConstant.SLASH + itemResponse.getObjectName(), dstPath + ApiConstant.SLASH + itemResponse.getObjectName(), recursive);
             } else {
-                try {
-                    InputStream inputStream = getObject(GetObjectArgs.builder().bucket(srcBucket).object(itemResponse.getObjectName()).build()).getInputStream();
-                    putObject(PutObjectArgs.builder().inputStream(inputStream).bucket(dstBucket).object(itemResponse.getObjectName()).build());
+                GetObjectArgs.Builder getObjectBuilder = GetObjectArgs.builder().bucket(srcPath);
+                if (StringUtils.isNotBlank(itemResponse.getObjectName())) {
+                    getObjectBuilder.object(itemResponse.getObjectName());
+                }
+                try (InputStream inputStream = getObject(getObjectBuilder.build()).getInputStream()) {
+                    PutObjectArgs.Builder putObjectBuilder = PutObjectArgs.builder().inputStream(inputStream).bucket(dstPath);
+                    if (StringUtils.isNotBlank(itemResponse.getObjectName())) {
+                        putObjectBuilder.object(itemResponse.getObjectName());
+                    }
+                    putObject(putObjectBuilder.build());
                 } catch (Exception e) {
                     log.error(e.getMessage(), e);
                     throw OssExceptionEnum.COPY_OBJECT_ERROR.getException();
@@ -442,13 +430,26 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
         }
     }
 
+    private String safeConcatPath(String bucket, String object) {
+        if (StringUtils.isNotBlank(bucket) && StringUtils.isNotBlank(object)) {
+            return bucket + ApiConstant.SLASH + object;
+        } else if (StringUtils.isNotBlank(bucket)) {
+            return bucket;
+        } else {
+            return object;
+        }
+    }
+
     @Override
     public CopyObjectResponse copyObject(CopyObjectArgs args) {
-        log.info("copyObject:{}", JSON.toJSONString(args));
-        copy(args.getSrcBucket(), args.getSrcObject(), args.getBucket(), StringUtils.isBlank(args.getObject()) ? args.getSrcObject() : args.getObject());
+        log.info("{}", JSON.toJSONString(args));
+        String targetObject = StringUtils.isBlank(args.getObject()) ? args.getSrcObject() : args.getObject();
+        String srcPath = safeConcatPath(args.getSrcBucket(), args.getSrcObject());
+        String dstPath = safeConcatPath(args.getBucket(), targetObject);
+        copy(srcPath, dstPath, args.isRecursive());
         if (args.getDelete()) {
             try {
-                remove(args.getSrcBucket(), args.getSrcObject());
+                remove(args.getSrcBucket(), args.getSrcObject(), args.isRecursive());
             } catch (Exception e) {
                 log.error(e.getMessage(), e);
                 throw OssExceptionEnum.DELETE_OBJECT_ERROR.getException();
@@ -477,27 +478,6 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
             if (response != null) {
                 response.close();
             }
-            throw OssExceptionEnum.GET_OBJECT_ERROR.getException();
-        }
-    }
-
-    @Override
-    public void downloadObject(DownloadObjectArgs args) {
-        try {
-            File file = new File(args.getFileName());
-            if (!file.exists()) {
-                createFile(file, Boolean.FALSE);
-            }
-            try (InputStream inputStream = getObject(GetObjectArgs.builder().bucket(args.getBucket()).object(args.getObject()).build()).getInputStream();
-                 BufferedOutputStream outputStream = new BufferedOutputStream(new FileOutputStream(file))) {
-                byte[] buff = new byte[2048];
-                int read;
-                while ((read = inputStream.read(buff)) != -1) {
-                    outputStream.write(buff, 0, read);
-                }
-            }
-        } catch (Exception e) {
-            log.error(e.getMessage(), e);
             throw OssExceptionEnum.GET_OBJECT_ERROR.getException();
         }
     }
@@ -553,7 +533,7 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
 
     @Override
     public List<ItemResponse> listObjects(ListObjectsArgs args) {
-        log.info("listObjects:{}", JSON.toJSONString(args));
+        log.info("{}", JSON.toJSONString(args));
         List<ItemResponse> itemResponses = new ArrayList<>();
         listObjects(itemResponses, args, args.getPrefix(), "");
         return itemResponses;
@@ -561,12 +541,12 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
 
     @Override
     public List<RemoveObjectResponse> removeObjects(RemoveObjectArgs args) {
-        log.info("removeObjects:{}", JSON.toJSONString(args));
+        log.info("{}", JSON.toJSONString(args));
         List<String> deleteObjects = filterObjects(args.getObjects());
         List<RemoveObjectResponse> responses = new ArrayList<>();
         for (String object : deleteObjects) {
             try {
-                boolean remove = remove(args.getBucket(), object);
+                boolean remove = remove(args.getBucket(), object, args.isRecursive());
                 if (remove) {
                     responses.add(new RemoveObjectResponse(args.getBucket(), object, null));
                 }

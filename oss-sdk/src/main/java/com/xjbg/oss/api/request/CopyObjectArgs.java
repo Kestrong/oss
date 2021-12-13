@@ -24,6 +24,11 @@ public class CopyObjectArgs extends ObjectArgs {
      */
     private Boolean delete;
 
+    /**
+     * 递归查找
+     */
+    private boolean recursive = false;
+
     public Boolean getDelete() {
         return delete == null ? Boolean.FALSE : delete;
     }
@@ -53,6 +58,11 @@ public class CopyObjectArgs extends ObjectArgs {
 
         public Builder delete(Boolean delete) {
             operations.add(args -> args.delete = delete);
+            return this;
+        }
+
+        public Builder recursive(boolean recursive) {
+            operations.add(args -> args.recursive = recursive);
             return this;
         }
     }

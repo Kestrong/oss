@@ -14,6 +14,10 @@ import java.util.List;
 @Setter
 public class RemoveObjectArgs extends BucketArgs {
     private List<String> objects = new ArrayList<>();
+    /**
+     * 递归删除
+     */
+    private boolean recursive = false;
 
     public static Builder builder() {
         return new Builder();
@@ -23,6 +27,11 @@ public class RemoveObjectArgs extends BucketArgs {
 
         public Builder objects(List<String> objects) {
             operations.add(args -> args.objects.addAll(objects));
+            return this;
+        }
+
+        public Builder recursive(boolean recursive) {
+            operations.add(args -> args.recursive = recursive);
             return this;
         }
 

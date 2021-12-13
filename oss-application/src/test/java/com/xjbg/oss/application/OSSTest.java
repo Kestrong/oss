@@ -39,7 +39,7 @@ public class OSSTest extends BaseTest {
     public void before() {
         ossApi = ossTemplate.api();
         if (!ossApi.apiType().equals(ApiType.FILESYSTEM)) {
-            bucket = "itm-minio-test1";
+            bucket = "itm-minio-test";
             object = "test.txt";
             object2 = "test2/test2.txt";
             object3 = "test3.txt";
@@ -151,17 +151,14 @@ public class OSSTest extends BaseTest {
             log.info("putObject:{}", JSON.toJSONString(response));
         }
 
-        try (InputStream inputStream = new FileInputStream(new File(directory))) {
-            UploadObjectArgs uploadObjectArgs = UploadObjectArgs.builder()
-                    .bucket(bucket)
-                    .object(object2)
-                    .contentLength((long) inputStream.available())
-                    .contentType(contentType)
-                    .inputStream(inputStream)
-                    .build();
-            ObjectWriteResponse objectWriteResponse = ossApi.uploadObject(uploadObjectArgs);
-            log.info("objectWriteResponse:{}", JSON.toJSONString(objectWriteResponse));
-        }
+        UploadObjectArgs uploadObjectArgs = UploadObjectArgs.builder()
+                .bucket(bucket)
+                .object(object2)
+                .contentType(contentType)
+                .fileName(directory)
+                .build();
+        List<PutObjectResponse> putObjectResponses = ossApi.uploadObject(uploadObjectArgs);
+        log.info("putObjectResponses:{}", JSON.toJSONString(putObjectResponses));
 
         CopyObjectArgs copyObjectArgs = CopyObjectArgs.builder()
                 .srcBucket(bucket)
@@ -189,8 +186,8 @@ public class OSSTest extends BaseTest {
         }
         String fileName = "D://tmp/README.txt";
         DownloadObjectArgs downloadObjectArgs = DownloadObjectArgs.builder()
-                .bucket(ossApi.apiType().equals(ApiType.FILESYSTEM) ? "https://github.com/minio/minio-java/blob/release/" : bucket)
-                .object(ossApi.apiType().equals(ApiType.FILESYSTEM) ? "README.md" : object2)
+                .bucket(bucket)
+                .object(object2)
                 .fileName(fileName)
                 .build();
         ossApi.downloadObject(downloadObjectArgs);

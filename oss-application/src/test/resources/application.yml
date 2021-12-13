@@ -1,13 +1,13 @@
 oss:
   enable: true
-  defaultApiType: webhdfs
+  defaultApiType: minio #filesystem minio webhdfs
   minio:
-    url: http://192.168.7.152:9000 #http://play.min.io
+    url: 192.168.17.213:19000 #http://play.min.io
     accessKey: minio #Q3AM3UQ867SPQQA43P2F
     secretKey: minio123 #zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG
-    enable: false
+    enable: true
   webhdfs:
-    defaultBucket: test #默认挂载点
+    defaultBucket: iod #默认挂载点
     url: http://192.168.7.33:50070/webhdfs/v1 #连接地址 192.168.7.140
     accessKey: client@TEST.COM #用户名 不管kerberos还是simple认证都必填
     secretKey: D:\文档\开发文件\对象存储\hdfs操作\client.keytab #密码

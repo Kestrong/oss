@@ -164,7 +164,7 @@ public class OssController {
                     + new String(filename.getBytes(StandardCharsets.UTF_8), StandardCharsets.ISO_8859_1));
             response.setContentType(OssConstants.DEFAUL_CONTENT_TYPE);
             ServletOutputStream outputStream = response.getOutputStream();
-            byte[] buff = new byte[1024];
+            byte[] buff = new byte[OssConstants.DEFUALT_BUFFER_SIZE];
             int read;
             while ((read = inputStream.read(buff)) != -1) {
                 outputStream.write(buff, 0, read);
@@ -195,14 +195,10 @@ public class OssController {
                                                     @RequestParam(name = "file") MultipartFile file,
                                                     UploadObjectArgs args) {
         OssApi ossApi = ossApi(apiType);
-        try {
-            args.setInputStream(file.getInputStream());
-            args.setContentLength(file.getSize());
-            args.setContentType(file.getContentType());
-            return new BaseResponse<>(ossApi.uploadObject(args));
-        } catch (IOException e) {
-            throw OssExceptionEnum.PUT_OBJECT_ERROR.getException();
-        }
+        args.setContentLength(file.getSize());
+        args.setContentType(file.getContentType());
+        ossApi.uploadObject(args);
+        return new BaseResponse<>();
     }
 
     @GetMapping(value = "/presigned-object-url")

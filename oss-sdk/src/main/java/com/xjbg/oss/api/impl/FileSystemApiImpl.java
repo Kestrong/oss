@@ -1,6 +1,7 @@
 package com.xjbg.oss.api.impl;
 
 import com.alibaba.fastjson.JSON;
+import com.xjbg.oss.OssConstants;
 import com.xjbg.oss.api.request.*;
 import com.xjbg.oss.api.response.*;
 import com.xjbg.oss.enums.ApiType;
@@ -9,10 +10,7 @@ import com.xjbg.oss.exception.OssExceptionEnum;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.*;
-import java.net.URL;
-import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,28 +26,6 @@ public class FileSystemApiImpl extends AbstractOssApiImpl {
 
     public FileSystemApiImpl(String baseDir) {
         this.baseDir = baseDir;
-    }
-
-    @Override
-    public void setBucketAcl(SetBucketAclArgs args) {
-        log.warn("unsupported operation");
-    }
-
-    @Override
-    public AclResponse getBucketAcl(GetBucketAclArgs args) {
-        log.warn("unsupported operation");
-        return null;
-    }
-
-    @Override
-    public void setBucketPolicy(SetBucketPolicyArgs args) {
-        log.warn("unsupported operation");
-    }
-
-    @Override
-    public String getBucketPolicy(GetBucketPolicyArgs args) {
-        log.warn("unsupported operation");
-        return null;
     }
 
     @Override
@@ -97,17 +73,6 @@ public class FileSystemApiImpl extends AbstractOssApiImpl {
     }
 
     @Override
-    public void setObjectAcl(SetObjectAclArgs args) {
-        log.warn("unsupported operation");
-    }
-
-    @Override
-    public AclResponse getObjectAcl(GetObjectAclArgs args) {
-        log.warn("unsupported operation");
-        return null;
-    }
-
-    @Override
     public CopyObjectResponse copyObject(CopyObjectArgs args) {
         log.info("{}", JSON.toJSONString(args));
         String fullSrcPath = Paths.get(baseDir, args.getSrcBucket(), args.getSrcObject()).toString();
@@ -123,9 +88,12 @@ public class FileSystemApiImpl extends AbstractOssApiImpl {
         response.setObject(targetObject);
         response.setSrcBucket(args.getSrcBucket());
         response.setSrcObject(args.getSrcObject());
+        if (fullSrcPath.equals(fullPath)) {
+            return response;
+        }
         try {
             createFile(target, src.isDirectory());
-            List<String> files = listFile(src);
+            List<String> files = listFile(src, args.isRecursive());
             for (String file : files) {
                 File toFile = Paths.get(target.toPath().toString(), file).toFile();
                 createFile(toFile, toFile.isDirectory());
@@ -138,6 +106,7 @@ public class FileSystemApiImpl extends AbstractOssApiImpl {
                 RemoveObjectArgs removeObjectRequest = RemoveObjectArgs.builder()
                         .bucket(args.getSrcBucket())
                         .objects(Collections.singletonList(args.getSrcObject()))
+                        .recursive(args.isRecursive())
                         .build();
                 removeObjects(removeObjectRequest);
             }
@@ -166,21 +135,11 @@ public class FileSystemApiImpl extends AbstractOssApiImpl {
 
     @Override
     public void downloadObject(DownloadObjectArgs args) {
-        log.info("{}", JSON.toJSONString(args));
-        try {
-            File file = new File(args.getFileName());
-            if (!file.exists()) {
-                createFile(file, Boolean.FALSE);
-            }
-            URL website = new URL(args.getBucket() + args.getObject());
-            try (ReadableByteChannel rbc = Channels.newChannel(website.openStream());
-                 FileOutputStream fos = new FileOutputStream(args.getFileName())) {
-                fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
-            }
-        } catch (Exception e) {
-            log.error(e.getMessage(), e);
-            throw OssExceptionEnum.GET_OBJECT_ERROR.getException();
+        String fullPath = Paths.get(baseDir, args.getBucket(), args.getObject()).toString();
+        if (StringUtils.isNotBlank(args.getFileName()) && fullPath.equals(Paths.get(args.getFileName()).toString())) {
+            return;
         }
+        super.downloadObject(args);
     }
 
     @Override
@@ -237,7 +196,7 @@ public class FileSystemApiImpl extends AbstractOssApiImpl {
             if (file.isFile() && inputStream != null) {
                 try (FileOutputStream outputStream = new FileOutputStream(file)) {
                     int index;
-                    byte[] bytes = new byte[2048];
+                    byte[] bytes = new byte[OssConstants.DEFUALT_BUFFER_SIZE];
                     while ((index = inputStream.read(bytes)) != -1) {
                         outputStream.write(bytes, 0, index);
                         outputStream.flush();
@@ -255,14 +214,12 @@ public class FileSystemApiImpl extends AbstractOssApiImpl {
     }
 
     @Override
-    public ObjectWriteResponse uploadObject(UploadObjectArgs args) {
-        return putObject(PutObjectArgs.builder()
-                .bucket(args.getBucket())
-                .object(args.getObject())
-                .contentLength(args.getContentLength())
-                .contentType(args.getContentType())
-                .inputStream(args.getInputStream())
-                .build());
+    public List<PutObjectResponse> uploadObject(UploadObjectArgs args) {
+        String fullPath = Paths.get(baseDir, args.getBucket(), args.getObject()).toString();
+        if (StringUtils.isNotBlank(args.getFileName()) && fullPath.equals(Paths.get(args.getFileName()).toString())) {
+            return Collections.emptyList();
+        }
+        return super.uploadObject(args);
     }
 
     @Override
@@ -275,7 +232,7 @@ public class FileSystemApiImpl extends AbstractOssApiImpl {
             File file = new File(fullPath);
             try {
                 if (file.exists()) {
-                    deleteDir(responses, file);
+                    deleteDir(responses, file, args.isRecursive());
                 }
             } catch (Exception e) {
                 log.error(e.getMessage(), e);
@@ -284,7 +241,7 @@ public class FileSystemApiImpl extends AbstractOssApiImpl {
         return responses;
     }
 
-    private void deleteDir(List<RemoveObjectResponse> responses, File file) {
+    private void deleteDir(List<RemoveObjectResponse> responses, File file, boolean recursive) {
         if (file.isFile()) {
             boolean delete = file.delete();
             if (delete) {
@@ -292,9 +249,9 @@ public class FileSystemApiImpl extends AbstractOssApiImpl {
             }
         } else {
             File[] files = file.listFiles();
-            if (files != null && files.length > 0) {
+            if (recursive && files != null && files.length > 0) {
                 for (File f : files) {
-                    deleteDir(responses, f);
+                    deleteDir(responses, f, true);
                 }
             }
             boolean delete = file.delete();
