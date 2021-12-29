@@ -25,6 +25,7 @@ public enum OssExceptionEnum {
     BUCKET_ACL_ERROR("OSS-0000013", "操作bucket权限失败"),
     BUCKET_POLICY_ERROR("OSS-0000014", "操作bucket策略失败"),
     OBJECT_ACL_ERROR("OSS-0000015", "操作object权限失败"),
+    TARGET_API_IS_NULL("MIO-0000016", "目标存储不能为空"),
     ;
     private String code;
     private String msg;

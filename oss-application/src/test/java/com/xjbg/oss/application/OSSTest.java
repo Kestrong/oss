@@ -204,6 +204,14 @@ public class OSSTest extends BaseTest {
     }
 
     @Test
+    public void testTransfer() {
+        TransferObjectArgs args = TransferObjectArgs.builder().srcBucket(bucket).srcObject(object)
+                .targetApi(ossTemplate.api(ApiType.WEBHDFS)).build();
+        CopyObjectResponse copyObjectResponse = ossApi.transferTo(args);
+        log.info("testTransfer:{}", JSON.toJSONString(copyObjectResponse));
+    }
+
+    @Test
     public void testPresignedObjectUrl() {
         GetPresignedObjectUrlArgs getPresignedObjectUrlArgs = GetPresignedObjectUrlArgs.builder()
                 .bucket(bucket)

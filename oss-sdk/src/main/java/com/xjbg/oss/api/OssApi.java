@@ -172,6 +172,14 @@ public interface OssApi {
     List<RemoveObjectResponse> removeObjects(RemoveObjectArgs args);
 
     /**
+     * 把某个存储下的文件迁移到另一个存储下
+     *
+     * @param args {@link TransferObjectArgs}
+     * @return {@link ObjectWriteResponse}
+     */
+    CopyObjectResponse transferTo(TransferObjectArgs args);
+
+    /**
      * Gets presigned URL of an object for HTTP method, expiry time and custom request parameters.
      *
      * @param request {@link GetPresignedObjectUrlArgs}

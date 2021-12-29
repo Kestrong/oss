@@ -7,6 +7,7 @@ import com.xjbg.oss.api.OssApi;
 import com.xjbg.oss.api.request.*;
 import com.xjbg.oss.api.response.AclResponse;
 import com.xjbg.oss.api.response.BucketResponse;
+import com.xjbg.oss.api.response.CopyObjectResponse;
 import com.xjbg.oss.api.response.PutObjectResponse;
 import com.xjbg.oss.exception.OssExceptionEnum;
 import org.apache.commons.lang3.StringUtils;
@@ -188,5 +189,27 @@ public abstract class AbstractOssApiImpl implements OssApi {
         return responses;
     }
 
-
+    @Override
+    public CopyObjectResponse transferTo(TransferObjectArgs args) {
+        log.info("transferTo:{}", JSON.toJSONString(args));
+        OssApi targetApi = args.getTargetApi();
+        if (targetApi == null) {
+            throw OssExceptionEnum.TARGET_API_IS_NULL.getException();
+        }
+        String bucket = StringUtils.isNoneBlank(args.getBucket()) ? args.getBucket() : args.getSrcBucket();
+        String object = StringUtils.isNoneBlank(args.getObject()) ? args.getObject() : args.getSrcObject();
+        if (apiType().equals(targetApi.apiType())) {
+            return copyObject(CopyObjectArgs.builder().srcBucket(args.getSrcBucket()).srcObject(args.getSrcObject())
+                    .bucket(bucket).object(object).build());
+        }
+        try (InputStream inputStream = getObject(GetObjectArgs.builder().bucket(args.getSrcBucket())
+                .object(args.getSrcObject()).build()).getInputStream()) {
+            PutObjectResponse putObjectResponse = targetApi.putObject(PutObjectArgs.builder().bucket(bucket).object(object)
+                    .inputStream(inputStream).build());
+            return new CopyObjectResponse(args.getSrcBucket(), putObjectResponse.getBucket(), putObjectResponse.getRegion(), args.getSrcObject(), putObjectResponse.getObject());
+        } catch (Exception e) {
+            log.error(e.getMessage(), e);
+            throw OssExceptionEnum.COPY_OBJECT_ERROR.getException();
+        }
+    }
 }
