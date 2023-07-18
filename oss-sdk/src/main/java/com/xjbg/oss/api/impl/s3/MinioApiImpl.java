@@ -1,8 +1,6 @@
-package com.xjbg.oss.api.impl;
+package com.xjbg.oss.api.impl.s3;
 
 import com.amazonaws.services.s3.AmazonS3;
-import com.xjbg.oss.api.request.SetBucketAclArgs;
-import com.xjbg.oss.api.request.SetObjectAclArgs;
 import com.xjbg.oss.enums.ApiType;
 import lombok.NonNull;
 

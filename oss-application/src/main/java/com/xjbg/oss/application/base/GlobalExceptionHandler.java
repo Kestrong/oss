@@ -121,7 +121,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(OssException.class)
-    @ResponseStatus(HttpStatus.OK)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     @ResponseBody
     public BaseResponse ossError(OssException e) {
         return getResponseMessage(e.getCode(), e.getMessage());

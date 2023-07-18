@@ -1,10 +1,10 @@
 oss:
   enable: true
-  defaultApiType: minio #filesystem minio webhdfs
+  defaultApiType: filesystem #filesystem minio webhdfs
   minio:
-    url: 192.168.17.213:19000 #http://play.min.io
+    url: http://10.11.2.187:9000 #http://play.min.io
     accessKey: minio #Q3AM3UQ867SPQQA43P2F
-    secretKey: minio123 #zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG
+    secretKey: Itsm@iod#520 #zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG
     enable: true
   webhdfs:
     defaultBucket: iod #默认挂载点

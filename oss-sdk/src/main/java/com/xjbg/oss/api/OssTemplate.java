@@ -34,11 +34,11 @@ public class OssTemplate {
     }
 
     public OssApi api() {
-        return Objects.requireNonNull(apis.get(defaultApiType));
+        return api(defaultApiType);
     }
 
     public OssApi api(ApiType apiType) {
-        return Objects.requireNonNull(apis.get(apiType));
+        return Objects.requireNonNull(apis.get(apiType), String.format("%s api type not found.", apiType));
     }
 
     public OssApi s3Api() {

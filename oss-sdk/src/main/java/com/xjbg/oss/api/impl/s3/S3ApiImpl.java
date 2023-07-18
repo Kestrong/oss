@@ -1,10 +1,11 @@
-package com.xjbg.oss.api.impl;
+package com.xjbg.oss.api.impl.s3;
 
 import com.alibaba.fastjson.JSON;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.*;
 import com.xjbg.oss.OssConstants;
 import com.xjbg.oss.api.ApiConstant;
+import com.xjbg.oss.api.impl.AbstractOssApiImpl;
 import com.xjbg.oss.api.request.*;
 import com.xjbg.oss.api.response.*;
 import com.xjbg.oss.enums.ApiType;
@@ -260,6 +261,28 @@ public class S3ApiImpl extends AbstractOssApiImpl {
     }
 
     @Override
+    public ObjectMetadataResponse statObject(GetObjectArgs args) {
+        log.info("{}", JSON.toJSONString(args));
+        try {
+            GetObjectMetadataRequest getObjectMetadataRequest = new GetObjectMetadataRequest(getTopPathAsBucket(args.getBucket()),
+                    getValidObject(args.getBucket(), args.getObject()));
+
+            ObjectMetadata objectMetadata = s3Client.getObjectMetadata(getObjectMetadataRequest);
+            ObjectMetadataResponse objectMetadataResponse = new ObjectMetadataResponse();
+            objectMetadataResponse.setBucket(args.getBucket());
+            objectMetadataResponse.setObject(args.getObject());
+            objectMetadataResponse.setEtag(objectMetadata.getETag());
+            objectMetadataResponse.setLastModified(objectMetadata.getLastModified());
+            objectMetadataResponse.setLength(objectMetadata.getContentLength());
+            objectMetadataResponse.setContentType(objectMetadata.getContentType());
+            return objectMetadataResponse;
+        } catch (Exception e) {
+            log.error(e.getMessage(), e);
+            throw OssExceptionEnum.GET_OBJECT_ERROR.getException();
+        }
+    }
+
+    @Override
     public CopyObjectResponse copyObject(CopyObjectArgs args) {
         log.info("{}", JSON.toJSONString(args));
         try {
@@ -318,6 +341,9 @@ public class S3ApiImpl extends AbstractOssApiImpl {
         try {
             GetObjectRequest getObjectRequest = new GetObjectRequest(getTopPathAsBucket(args.getBucket()),
                     getValidObject(args.getBucket(), args.getObject()));
+            if (args.getRange() != null) {
+                getObjectRequest.withRange(args.getRange()[0], args.getRange()[1]);
+            }
             S3Object s3Object = s3Client.getObject(getObjectRequest);
             GetObjectResponse getObjectResponse = new GetObjectResponse();
             getObjectResponse.setBucket(args.getBucket());
@@ -378,7 +404,8 @@ public class S3ApiImpl extends AbstractOssApiImpl {
         log.info("{}", JSON.toJSONString(args));
         try {
             String formatPrefix = getValidObject(args.getBucket(), args.getPrefix());
-            formatPrefix = formatPath(formatPrefix, false);
+            boolean searchFile = StringUtils.isNotBlank(formatPrefix) && formatPrefix.contains(".");
+            formatPrefix = formatPath(formatPrefix, !searchFile);
             ListObjectsV2Request listObjectsRequest = new ListObjectsV2Request()
                     .withBucketName(getTopPathAsBucket(args.getBucket()))
                     .withDelimiter(args.getDelimiter())

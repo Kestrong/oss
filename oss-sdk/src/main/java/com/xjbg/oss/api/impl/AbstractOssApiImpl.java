@@ -16,11 +16,9 @@ import org.slf4j.LoggerFactory;
 
 import javax.activation.MimetypesFileTypeMap;
 import java.io.*;
+import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -144,8 +142,12 @@ public abstract class AbstractOssApiImpl implements OssApi {
             if (!file.exists()) {
                 createFile(file, Boolean.FALSE);
             }
-            try (InputStream inputStream = getObject(GetObjectArgs.builder().bucket(args.getBucket()).object(args.getObject()).build()).getInputStream();
-                 BufferedOutputStream outputStream = new BufferedOutputStream(new FileOutputStream(file))) {
+            GetObjectArgs.Builder builder = GetObjectArgs.builder().bucket(args.getBucket()).object(args.getObject());
+            if (args.getRange() != null) {
+                builder.withRange(args.getRange()[0], args.getRange()[1]);
+            }
+            try (InputStream inputStream = getObject(builder.build()).getInputStream();
+                 BufferedOutputStream outputStream = new BufferedOutputStream(Files.newOutputStream(file.toPath()))) {
                 byte[] buff = new byte[OssConstants.DEFUALT_BUFFER_SIZE];
                 int read;
                 while ((read = inputStream.read(buff)) != -1) {
@@ -211,5 +213,13 @@ public abstract class AbstractOssApiImpl implements OssApi {
             log.error(e.getMessage(), e);
             throw OssExceptionEnum.COPY_OBJECT_ERROR.getException();
         }
+    }
+
+    protected Map<String, String> rangeHeader(long[] range) {
+        Map<String, String> headers = new HashMap<>();
+        if (range != null) {
+            headers.put("Range", "bytes=" + range[0] + "-" + (range[1] - range[0] + 1));
+        }
+        return headers;
     }
 }

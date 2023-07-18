@@ -10,5 +10,8 @@ public enum ApiType {
     CEPH,
     S3,
     FILESYSTEM,
-    WEBHDFS;
+    WEBHDFS,
+    FTP,
+    SFTP,
+    OTHER;
 }

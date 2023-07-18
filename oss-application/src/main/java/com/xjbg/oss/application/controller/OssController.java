@@ -12,6 +12,7 @@ import com.xjbg.oss.exception.OssExceptionEnum;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -124,6 +125,13 @@ public class OssController {
         return new BaseResponse<>(ossApi.getObjectAcl(args));
     }
 
+    @GetMapping(value = "/stat-object")
+    public BaseResponse<ObjectMetadataResponse> statObject(@RequestParam(name = "apiType", required = false) ApiType apiType,
+                                                           GetObjectArgs args) {
+        OssApi ossApi = ossApi(apiType);
+        return new BaseResponse<>(ossApi.statObject(args));
+    }
+
     @PutMapping(value = "/copy-object")
     public BaseResponse<CopyObjectResponse> copyObject(@RequestParam(name = "apiType", required = false) ApiType apiType,
                                                        CopyObjectArgs args) {
@@ -175,9 +183,9 @@ public class OssController {
         }
     }
 
-    @PostMapping(value = "/put-object")
+    @PostMapping(value = "/put-object", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public BaseResponse<PutObjectResponse> putObject(@RequestParam(name = "apiType", required = false) ApiType apiType,
-                                                     @RequestParam(name = "file") MultipartFile file,
+                                                     @RequestPart(name = "file") MultipartFile file,
                                                      PutObjectArgs args) {
         OssApi ossApi = ossApi(apiType);
         try {

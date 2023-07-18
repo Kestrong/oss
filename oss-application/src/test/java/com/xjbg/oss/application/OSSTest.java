@@ -14,10 +14,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.Collections;
 import java.util.List;
 
@@ -39,7 +36,7 @@ public class OSSTest extends BaseTest {
     public void before() {
         ossApi = ossTemplate.api();
         if (!ossApi.apiType().equals(ApiType.FILESYSTEM)) {
-            bucket = "itm-minio-test";
+            bucket = "test";
             object = "test.txt";
             object2 = "test2/test2.txt";
             object3 = "test3.txt";
@@ -171,6 +168,15 @@ public class OSSTest extends BaseTest {
     }
 
     @Test
+    public void testStatObject() {
+        GetObjectArgs getObjectRequest = new GetObjectArgs();
+        getObjectRequest.setBucket(bucket);
+        getObjectRequest.setObject(object);
+        ObjectMetadataResponse objectStatResponse = ossApi.statObject(getObjectRequest);
+        log.info("statObject:{}", JSON.toJSONString(objectStatResponse));
+    }
+
+    @Test
     public void testGetObject() throws IOException {
         String objectUrl = ossApi.getObjectUrl(bucket, object);
         log.info("objectUrl:{}", objectUrl);
@@ -191,6 +197,28 @@ public class OSSTest extends BaseTest {
                 .fileName(fileName)
                 .build();
         ossApi.downloadObject(downloadObjectArgs);
+    }
+
+    @Test
+    public void testGetSlotObject() throws IOException {
+        GetObjectArgs getObjectArgs = GetObjectArgs.builder().bucket(bucket).object(object).build();
+        ObjectMetadataResponse objectStatResponse = ossApi.statObject(getObjectArgs);
+        try (RandomAccessFile randomAccessFile = new RandomAccessFile("D:\\tmp\\testSlot.txt", "rw")) {
+            getObjectArgs.setRange(new long[]{0L, objectStatResponse.getLength() / 2});
+            try (InputStream inputStream = ossApi.getObject(getObjectArgs).getInputStream()) {
+                int read;
+                while ((read = inputStream.read()) != -1) {
+                    randomAccessFile.write(read);
+                }
+            }
+            getObjectArgs.setRange(new long[]{getObjectArgs.getRange()[1] + 1, objectStatResponse.getLength() - 1});
+            try (InputStream inputStream = ossApi.getObject(getObjectArgs).getInputStream()) {
+                int read;
+                while ((read = inputStream.read()) != -1) {
+                    randomAccessFile.write(read);
+                }
+            }
+        }
     }
 
     @Test

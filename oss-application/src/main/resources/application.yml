@@ -1,5 +1,46 @@
+server:
+  servlet:
+    encoding:
+      enabled: true
+      charset: UTF-8
+      force: true
+    context-path: /oss-api
+    session:
+      timeout: 1800
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain,text/javascript,text/css,application/javascript,image/svg+xml,application/font-woff,application/x-font-woff,application/x-font-ttf,application/font-ttf,application/x-font-woff2,application/font-woff2,application/x-font-eot,application/font-eot
+    min-response-size: 10240
+
+spring:
+  servlet:
+    multipart:
+      max-file-size: -1
+      resolve-lazily: true
+  main:
+    allow-circular-references: true
+    allow-bean-definition-overriding: true
+  web:
+    locale-resolver: accept_header
+    locale: zh_CN
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+
+cors:
+  allow-credentials: true
+  allowed-origins:
+    - "*"
+  allowed-methods:
+    - "*"
+  allowed-headers:
+    - "*"
+  enable: true
+
 logging:
   level:
     root: info
+    com.alibaba.nacos: warn
   config: classpath:logback-spring.xml
-  path: ./logs/oss
+  file:
+    path: ./logs/oss

@@ -30,10 +30,9 @@ allprojects {
 }
 
 def versionMap = [
-        "springCloudVersion": "Greenwich.SR3",
-        "springboot"        : "2.1.7.RELEASE",
-        "springCloudNacos"  : "2.1.0.RELEASE",
-        "springBootNacos"   : "0.2.4"
+        "springCloudVersion": "2021.0.7",
+        "springboot"        : "2.7.4",
+        "springCloudNacos"  : "2.2.2.RELEASE"
 ]
 
 subprojects {
@@ -99,7 +98,7 @@ subprojects {
     dependencyManagement {
         dependencies {
             dependency 'org.projectlombok:lombok:1.18.12'
-            dependency 'com.alibaba:fastjson:1.2.75'
+            dependency 'com.alibaba:fastjson:1.2.83'
             dependency group: 'junit', name: 'junit', version: '4.13'
             dependency 'ch.qos.logback:logback-classic:1.2.3'
             dependency 'commons-beanutils:commons-beanutils:1.9.4'
@@ -110,7 +109,6 @@ subprojects {
             dependency 'commons-fileupload:commons-fileupload:1.4'
             dependency "com.squareup.okhttp3:okhttp:3.14.9"
             dependency "com.google.guava:guava:29.0-jre"
-            dependency "com.alibaba.boot:nacos-config-spring-boot-starter:$versionMap.springBootNacos"
             dependency "com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-discovery:$versionMap.springCloudNacos"
             dependency "com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-config:$versionMap.springCloudNacos"
         }

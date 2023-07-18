@@ -8,7 +8,9 @@ import com.xjbg.oss.application.properties.CorsProperties;
 import com.xjbg.oss.enums.DatePatternEnum;
 import com.xjbg.oss.enums.Encoding;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.http.HttpMessageConverters;
+import org.springframework.boot.autoconfigure.web.servlet.MultipartProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
@@ -35,7 +37,7 @@ import java.util.List;
  * @since 2019/2/27
  */
 @Configuration
-@EnableConfigurationProperties(value = {CorsProperties.class})
+@EnableConfigurationProperties(value = {CorsProperties.class, MultipartProperties.class})
 public class WebMvcConfig extends WebMvcConfigurationSupport {
 
     @Autowired
@@ -45,6 +47,7 @@ public class WebMvcConfig extends WebMvcConfigurationSupport {
 
     @Bean
     @RefreshScope
+    @ConditionalOnProperty(prefix = CorsProperties.CORS_PREFIX, value = "enable", havingValue = "true")
     public UrlBasedCorsConfigurationSource corsConfigurationSource() {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
@@ -59,6 +62,7 @@ public class WebMvcConfig extends WebMvcConfigurationSupport {
     }
 
     @Bean
+    @ConditionalOnProperty(prefix = CorsProperties.CORS_PREFIX, value = "enable", havingValue = "true")
     public FilterRegistrationBean<OssCorsFilter> corsFilterFilterRegistrationBean(OssCorsFilter ossCorsFilter) {
         FilterRegistrationBean<OssCorsFilter> bean = new FilterRegistrationBean<>(ossCorsFilter);
         bean.setOrder(0);
@@ -67,11 +71,8 @@ public class WebMvcConfig extends WebMvcConfigurationSupport {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler("swagger-ui.html")
-                .addResourceLocations("classpath:/META-INF/resources/");
-
-        registry.addResourceHandler("/webjars/**")
-                .addResourceLocations("classpath:/META-INF/resources/webjars/");
+        registry.addResourceHandler("/swagger-ui/**").addResourceLocations("classpath:/META-INF/resources/webjars/springfox-swagger-ui/");
+        registry.addResourceHandler("/webjars/**").addResourceLocations("classpath:/META-INF/resources/webjars/");
     }
 
     @Override
@@ -104,12 +105,12 @@ public class WebMvcConfig extends WebMvcConfigurationSupport {
 
     @Bean
     @Primary
-    public CommonsMultipartResolver getCommonsMultipartResolver() {
+    public CommonsMultipartResolver getCommonsMultipartResolver(MultipartProperties multipartProperties) {
         CommonsMultipartResolver commonsMultipartResolver = new CommonsMultipartResolver();
-        commonsMultipartResolver.setMaxUploadSize(-1);
+        commonsMultipartResolver.setMaxUploadSize(multipartProperties.getMaxFileSize().toBytes());
         commonsMultipartResolver.setMaxInMemorySize(1024 * 10);
         commonsMultipartResolver.setDefaultEncoding(Encoding.UTF_8.getEncoding());
-        commonsMultipartResolver.setResolveLazily(Boolean.TRUE);
+        commonsMultipartResolver.setResolveLazily(multipartProperties.isResolveLazily());
         return commonsMultipartResolver;
     }
 

@@ -110,7 +110,11 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
         return request;
     }
 
-    private Response execute(String url, String method, RequestBody requestBody) throws IOException {
+    protected Response execute(String url, String method, RequestBody requestBody) throws IOException {
+        return execute(url, method, requestBody, Collections.emptyMap());
+    }
+
+    private Response execute(String url, String method, RequestBody requestBody, Map<String, String> headers) throws IOException {
         OkHttpClient okHttpClient = this.okHttpClient;
         if (method.equals(ApiConstant.POST) || method.equals(ApiConstant.PUT)) {
             okHttpClient = okHttpClient.newBuilder().retryOnConnectionFailure(false).build();
@@ -441,6 +445,24 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
     }
 
     @Override
+    public ObjectMetadataResponse statObject(GetObjectArgs args) {
+        log.info("{}", JSON.toJSONString(args));
+        String url = defaultUrlBuilder().bucket(args.getBucket()).object(args.getObject())
+                .params(Collections.singletonMap(ApiConstant.OP, ApiConstant.GETFILESTATUS)).build();
+        try (Response response = execute(url, ApiConstant.GET, null)) {
+            if (ApiConstant.NOT_FOUND == response.code()) {
+                throw OssExceptionEnum.FILE_NOT_EXIST.getException();
+            }
+            JSONObject jsonObject = validResult(response);
+            JSONObject fileStatus = jsonObject.getJSONObject(ApiConstant.FILESTATUS);
+            return new ObjectMetadataResponse(args.getBucket(), args.getObject(), fileStatus.getDate(ApiConstant.MODIFICATION_TIME), jsonObject.getLongValue("length"), response.header("Etag"), response.header("Content-Type"));
+        } catch (Exception e) {
+            log.error(e.getMessage(), e);
+            throw OssExceptionEnum.GET_OBJECT_ERROR.getException();
+        }
+    }
+
+    @Override
     public CopyObjectResponse copyObject(CopyObjectArgs args) {
         log.info("{}", JSON.toJSONString(args));
         String targetObject = StringUtils.isBlank(args.getObject()) ? args.getSrcObject() : args.getObject();
@@ -464,7 +486,7 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
                 .params(Collections.singletonMap(ApiConstant.OP, ApiConstant.OPEN)).build();
         Response response = null;
         try {
-            response = execute(url, ApiConstant.GET, null);
+            response = execute(url, ApiConstant.GET, null, rangeHeader(args.getRange()));
             if ((response.isSuccessful() || response.isRedirect()) && response.body() != null) {
                 GetObjectResponse getObjectResponse = new GetObjectResponse();
                 getObjectResponse.setBucket(args.getBucket());

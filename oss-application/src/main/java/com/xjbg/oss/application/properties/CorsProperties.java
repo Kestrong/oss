@@ -18,6 +18,7 @@ import java.util.List;
 @ConfigurationProperties(prefix = CorsProperties.CORS_PREFIX)
 public class CorsProperties {
     public static final String CORS_PREFIX = "cors";
+    private boolean enable = true;
     private String pathPattern = "/**";
     private List<String> allowedOrigins = new ArrayList<>();
     private boolean allowCredentials = true;

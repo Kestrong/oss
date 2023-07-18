@@ -10,6 +10,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class GetObjectArgs extends ObjectArgs {
+    private long[] range;
 
     public static Builder builder() {
         return new Builder();
@@ -17,5 +18,13 @@ public class GetObjectArgs extends ObjectArgs {
 
     public static class Builder extends ObjectArgs.Builder<Builder, GetObjectArgs> {
 
+        public GetObjectArgs.Builder withRange(long start, long end) {
+            operations.add(args -> args.range = new long[]{start, end});
+            return this;
+        }
+
+        public GetObjectArgs.Builder withRange(long start) {
+            return withRange(start, Long.MAX_VALUE - 1);
+        }
     }
 }

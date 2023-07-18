@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
     <springProperty scope="context" name="logLevel" source="logging.level.root"/>
-    <springProperty scope="context" name="logPath" source="logging.path"/>
+    <springProperty scope="context" name="logPath" source="logging.file.path"/>
 
     <appender name="Console" class="ch.qos.logback.core.ConsoleAppender">
         <Target>System.out</Target>
@@ -18,32 +18,19 @@
         <File>${logPath}/oss-api.log</File>
         <Append>true</Append>
         <encoder>
-            <pattern>[%d] [%p] [%t] [%F:%L] - %.-2048m%n</pattern>
+            <pattern>[%d] [%p] [%t] [%F:%L] - %m%n</pattern>
             <charset>UTF-8</charset>
         </encoder>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>${logLevel}</level>
         </filter>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${logPath}/oss-api.log.%d{yyyy-MM-dd}</fileNamePattern>
+            <fileNamePattern>${logPath}/oss-api.log.%d{yyyy-MM-dd}.part%i</fileNamePattern>
             <maxHistory>14</maxHistory>
-            <totalSizeCap>16GB</totalSizeCap>
-        </rollingPolicy>
-    </appender>
-
-    <appender name="ErrorFile" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <File>${logPath}/oss-api-error.log</File>
-        <encoder>
-            <pattern>[%d] [%p] [%t] [%F:%L] - %m%n</pattern>
-            <charset>UTF-8</charset>
-        </encoder>
-        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-            <level>WARN</level>
-        </filter>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${logPath}/oss-api-error.log.%d{yyyy-MM-dd}</fileNamePattern>
-            <maxHistory>14</maxHistory>
-            <totalSizeCap>16GB</totalSizeCap>
+            <totalSizeCap>3GB</totalSizeCap>
+            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                <maxFileSize>20MB</maxFileSize>
+            </timeBasedFileNamingAndTriggeringPolicy>
         </rollingPolicy>
     </appender>
 
@@ -52,7 +39,6 @@
     <root level="${logLevel}">
         <appender-ref ref="Console"/>
         <appender-ref ref="LogFile"/>
-        <appender-ref ref="ErrorFile"/>
     </root>
 
 </configuration>

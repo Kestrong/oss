@@ -4,6 +4,8 @@ bootJar {
     archivesBaseName = 'oss-api'
     manifest {
         attributes "Manifest-Version": 1.0,
+                'Implementation-Title': project.name,
+                'Implementation-Version': "${project.version}  Build: ${new Date().format('yyyy-MM-dd HH:mm:ss')}",
                 'Start-Class': 'com.xjbg.oss.OssApplication'
     }
 }
@@ -19,11 +21,13 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-aop'
     implementation 'org.springframework.boot:spring-boot-starter-jetty'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.cloud:spring-cloud-starter-bootstrap'
+    implementation "org.springframework.boot:spring-boot-starter-validation"
 
-    implementation 'com.alibaba.boot:nacos-config-spring-boot-starter'
     implementation 'com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-discovery'
     implementation 'com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-config'
 
-    implementation "io.springfox:springfox-swagger2:2.9.2"
-    implementation "io.springfox:springfox-swagger-ui:2.9.2"
+    implementation "io.springfox:springfox-boot-starter:3.0.0"
+
+    annotationProcessor "org.springframework.boot:spring-boot-configuration-processor"
 }

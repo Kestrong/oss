@@ -1,6 +1,4 @@
 spring:
-  profiles:
-    active: local
   cloud:
     nacos:
       discovery:
@@ -13,16 +11,7 @@ oss:
   defaultApiType: minio
   minio:
     defaultBucket: test
-    url: http://192.168.17.213:19000
+    url: http://10.11.2.187:9000
     accessKey: minio
-    secretKey: minio123
+    secretKey: Itsm@iod#520
     enable: true
-
-cors:
-  allow-credentials: true
-  allowed-origins:
-    - "*"
-  allowed-methods:
-    - "*"
-  allowed-headers:
-    - "*"

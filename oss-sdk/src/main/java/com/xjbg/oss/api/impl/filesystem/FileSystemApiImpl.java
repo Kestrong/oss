@@ -1,7 +1,8 @@
-package com.xjbg.oss.api.impl;
+package com.xjbg.oss.api.impl.filesystem;
 
 import com.alibaba.fastjson.JSON;
 import com.xjbg.oss.OssConstants;
+import com.xjbg.oss.api.impl.AbstractOssApiImpl;
 import com.xjbg.oss.api.request.*;
 import com.xjbg.oss.api.response.*;
 import com.xjbg.oss.enums.ApiType;
@@ -11,6 +12,8 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.io.*;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -73,6 +76,18 @@ public class FileSystemApiImpl extends AbstractOssApiImpl {
     }
 
     @Override
+    public ObjectMetadataResponse statObject(GetObjectArgs args) {
+        log.info("{}", JSON.toJSONString(args));
+        try {
+            File file = Paths.get(baseDir, args.getBucket(), args.getObject()).toFile();
+            return new ObjectMetadataResponse(args.getBucket(), args.getObject(), new Date(file.lastModified()), file.length(), null, getContentType(file.getName()));
+        } catch (Exception e) {
+            log.error(e.getMessage(), e);
+            throw OssExceptionEnum.GET_OBJECT_ERROR.getException();
+        }
+    }
+
+    @Override
     public CopyObjectResponse copyObject(CopyObjectArgs args) {
         log.info("{}", JSON.toJSONString(args));
         String fullSrcPath = Paths.get(baseDir, args.getSrcBucket(), args.getSrcObject()).toString();
@@ -121,13 +136,18 @@ public class FileSystemApiImpl extends AbstractOssApiImpl {
     public GetObjectResponse getObject(GetObjectArgs args) {
         log.info("{}", JSON.toJSONString(args));
         try {
-            String fullPath = Paths.get(baseDir, args.getBucket(), args.getObject()).toString();
             GetObjectResponse getObjectResponse = new GetObjectResponse();
             getObjectResponse.setBucket(args.getBucket());
             getObjectResponse.setObject(args.getObject());
-            getObjectResponse.setInputStream(new FileInputStream(fullPath));
+            Path file = Paths.get(baseDir, args.getBucket(), args.getObject());
+            if (args.getRange() != null) {
+                RandomAccessFile randomAccessFile = new RandomAccessFile(file.toFile(), "r");
+                getObjectResponse.setInputStream(new RandomAccessFileInputStream(randomAccessFile, args.getRange()[0], args.getRange()[1] - args.getRange()[0] + 1));
+            } else {
+                getObjectResponse.setInputStream(Files.newInputStream(file));
+            }
             return getObjectResponse;
-        } catch (FileNotFoundException e) {
+        } catch (IOException e) {
             log.error(e.getMessage(), e);
             throw OssExceptionEnum.GET_OBJECT_ERROR.getException();
         }

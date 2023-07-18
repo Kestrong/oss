@@ -63,7 +63,7 @@ public class OssProperties {
     /**
      * webhdfs properties
      */
-    private WebHdfsProperties webhdfs;
+    private WebHdfsProperties webhdfs = new WebHdfsProperties();
 
     @Data
     public static class S3Properties {

@@ -98,6 +98,14 @@ public interface OssApi {
     AclResponse getObjectAcl(GetObjectAclArgs args);
 
     /**
+     * 获取文件信息
+     *
+     * @param args args {@link GetObjectArgs}
+     * @return args {@link ObjectMetadataResponse}
+     */
+    ObjectMetadataResponse statObject(GetObjectArgs args);
+
+    /**
      * <p>
      * 复制`srcBucket`下的`srcObject`到`bucket`下的`object`,`object`不指定时默认取`srcObject`
      * </p>
