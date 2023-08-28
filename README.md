@@ -14,7 +14,7 @@
 
 * oss-application
 
-提供rest接口，通过swagger访问。地址：http://{ip}:{port}/{context}/swagger-ui.html
+提供rest接口，通过swagger访问。地址：http://{ip}:{port}/{context}/swagger-ui/index.html
 
 ## 快速开始
 
