@@ -54,7 +54,11 @@ public class WebMvcConfig extends WebMvcConfigurationSupport {
         config.setAllowCredentials(corsProperties.isAllowCredentials());
         config.setAllowedHeaders(corsProperties.getAllowedHeaders());
         config.setAllowedMethods(corsProperties.getAllowedMethods());
-        config.setAllowedOrigins(corsProperties.getAllowedOrigins());
+        if (corsProperties.getAllowedOrigins().size() == 1 && "*".equals(corsProperties.getAllowedOrigins().get(0))) {
+            config.setAllowedOriginPatterns(corsProperties.getAllowedOrigins());
+        } else {
+            config.setAllowedOrigins(corsProperties.getAllowedOrigins());
+        }
         config.setExposedHeaders(corsProperties.getExposedHeaders());
         config.setMaxAge(corsProperties.getMaxAge());
         source.registerCorsConfiguration(corsProperties.getPathPattern(), config);
