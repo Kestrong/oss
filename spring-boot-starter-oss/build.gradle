@@ -2,7 +2,7 @@ jar.enabled = true
 bootJar.enabled = false
 
 dependencies {
-    compile project(':oss-sdk')
+    api project(':oss-sdk')
     implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'org.springframework.boot:spring-boot-configuration-processor'
     implementation 'org.springframework.boot:spring-boot-autoconfigure-processor'

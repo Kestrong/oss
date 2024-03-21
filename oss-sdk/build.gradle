@@ -2,8 +2,9 @@ jar.enabled = true
 bootJar.enabled = false
 
 dependencies {
-    compile 'com.amazonaws:aws-java-sdk-s3'
-    compile 'ch.qos.logback:logback-classic'
-    compile 'com.squareup.okhttp3:okhttp'
-    compile 'com.google.guava:guava'
+    api 'com.amazonaws:aws-java-sdk-s3'
+    implementation 'org.slf4j:slf4j-api'
+    api 'com.squareup.okhttp3:okhttp'
+    implementation 'com.google.guava:guava'
+    implementation 'javax.activation:javax.activation-api:1.2.0'
 }

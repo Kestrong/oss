@@ -14,7 +14,7 @@ jar.enabled = true
 bootJar.enabled = true
 
 dependencies {
-    compile project(':spring-boot-starter-oss')
+    api project(':spring-boot-starter-oss')
     implementation('org.springframework.boot:spring-boot-starter-web') {
         exclude module: 'spring-boot-starter-tomcat'
     }
