@@ -1,5 +1,6 @@
 package com.xjbg.oss.properties;
 
+import com.xjbg.oss.api.ApiConstant;
 import com.xjbg.oss.enums.ApiType;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -8,6 +9,9 @@ import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.core.annotation.Order;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * @author kesc
@@ -110,9 +114,17 @@ public class OssProperties {
     @EqualsAndHashCode(callSuper = true)
     @Data
     public static class WebHdfsProperties extends S3Properties {
+        /**
+         * auth type: kerberos,pseudo
+         */
+        private String authType = ApiConstant.KERBEROS;
         private String krb5;
         private String servicePrincipal;
         private boolean debug = false;
+        /**
+         * key is ip:port, value is spn, for namenode and secondary namenode
+         */
+        private Map<String, String> standby = new HashMap<>();
     }
 
     @Getter

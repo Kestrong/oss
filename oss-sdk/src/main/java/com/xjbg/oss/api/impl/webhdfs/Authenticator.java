@@ -18,6 +18,11 @@ public interface Authenticator {
      */
     void authenticate(String url, Authenticator.Token token) throws IOException;
 
+    class NoopAuthenticator implements Authenticator {
+        public void authenticate(String url, Authenticator.Token token) throws IOException {
+        }
+    }
+
     /**
      * Client side authentication token.
      */

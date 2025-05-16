@@ -20,6 +20,7 @@ public final class ApiConstant {
     public static final int UNAUTHORIZED = 401;
     public static final int FORBIDDEN = 403;
     public static final int NOT_FOUND = 404;
+    public static final int SERVICE_UNAVAIABLE = 503;
 
     public static final String FILESTATUS = "FileStatus";
     public static final String FILESTATUSES = "FileStatuses";
@@ -38,4 +39,7 @@ public final class ApiConstant {
     public static final String LISTSTATUS = "LISTSTATUS";
     public static final String SETACL = "SETACL";
     public static final String GETACLSTATUS = "GETACLSTATUS";
+
+    public static final String KERBEROS = "kerberos";
+    public static final String PSEUDO = "pseudo";
 }

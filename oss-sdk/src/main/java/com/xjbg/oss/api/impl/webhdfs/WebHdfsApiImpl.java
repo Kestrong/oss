@@ -22,6 +22,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.util.*;
 
 /**
@@ -30,6 +31,8 @@ import java.util.*;
  */
 public class WebHdfsApiImpl extends AbstractOssApiImpl {
     private static final byte[] LOCK = new byte[0];
+    private long lastSwitchNameNode = 0;
+    private boolean switchState = false;
     private String userPrincipal;
     private String keyTab;
     private String url;
@@ -37,9 +40,10 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
     private String krb5;
     private OkHttpClient okHttpClient;
     private Authenticator authenticator;
+    private Map<String, String> standby;
     private final Authenticator.Token token = new Authenticator.Token();
 
-    public WebHdfsApiImpl(OkHttpClient okHttpClient, Authenticator authenticator, String userPrincipal, String keyTab, String krb5, String url, String defaultBucket) {
+    public WebHdfsApiImpl(OkHttpClient okHttpClient, Authenticator authenticator, String userPrincipal, String keyTab, String krb5, String url, String defaultBucket, Map<String, String> standby) {
         this.userPrincipal = userPrincipal;
         this.keyTab = keyTab;
         this.krb5 = krb5;
@@ -47,6 +51,7 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
         this.url = url;
         this.okHttpClient = okHttpClient;
         this.authenticator = authenticator;
+        this.standby = standby;
     }
 
     private boolean validToken(String token) {
@@ -78,6 +83,9 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
 
     private Map<String, String> tokenHeaders() throws IOException {
         Map<String, String> header = new HashMap<>(3);
+        if (authenticator instanceof Authenticator.NoopAuthenticator) {
+            return header;
+        }
         String t = ensureValidToken();
         if (t != null) {
             if (!t.startsWith("\"")) {
@@ -91,13 +99,18 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
     private WebhdfsUrlBuilder defaultUrlBuilder() {
         WebhdfsUrlBuilder urlBuilder = WebhdfsUrlBuilder.newBuilder().endpoint(url).defaultBucket(defaultBucket);
         if (StringUtils.isAnyBlank(userPrincipal, keyTab, krb5)) {
-            urlBuilder.params(Collections.singletonMap(PseudoAuthenticator.USER_NAME, keyTab));
+            urlBuilder.params(Collections.singletonMap(PseudoAuthenticator.USER_NAME, userPrincipal));
         }
         return urlBuilder;
     }
 
-    private Request buildRequest(String url, String method, RequestBody requestBody) throws IOException {
+    private Request buildRequest(String url, String method, RequestBody requestBody, Map<String, String> headers) throws IOException {
         Headers.Builder headerBuilder = new Headers.Builder();
+        if (headers != null && !headers.isEmpty()) {
+            for (Map.Entry<String, String> entry : headers.entrySet()) {
+                headerBuilder.add(entry.getKey(), entry.getValue());
+            }
+        }
         for (Map.Entry<String, String> entry : tokenHeaders().entrySet()) {
             headerBuilder.add(entry.getKey(), entry.getValue());
         }
@@ -110,8 +123,93 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
         return request;
     }
 
-    protected Response execute(String url, String method, RequestBody requestBody) throws IOException {
+    private boolean switchNameNode(WebhdfsUrlBuilder urlBuilder) {
+        if (this.standby == null || this.standby.isEmpty()) {
+            return false;
+        }
+        long duration = 3000L;
+        if (System.currentTimeMillis() - lastSwitchNameNode < duration) {
+            urlBuilder.endpoint(this.url);
+            return switchState;
+        }
+        synchronized (LOCK) {
+            if (System.currentTimeMillis() - lastSwitchNameNode < duration) {
+                urlBuilder.endpoint(this.url);
+                return switchState;
+            }
+            switchState = false;
+            String targetEndpoint = this.url;
+            for (Map.Entry<String, String> entry : standby.entrySet()) {
+                try {
+                    URI uri = new URI(targetEndpoint);
+                    String[] hostAndPort = entry.getKey().split(":");
+                    String host = hostAndPort[0];
+                    int port = uri.getPort();
+                    if (hostAndPort.length == 2) {
+                        port = Integer.parseInt(hostAndPort[1]);
+                    }
+                    URI newUri = new URI(uri.getScheme(), null, host, port, uri.getPath(), uri.getQuery(), uri.getFragment());
+                    String newUriString = newUri.toString();
+                    if (newUriString.equals(uri.toString())) {
+                        continue;
+                    }
+                    Authenticator.Token token = new Authenticator.Token();
+                    authenticator.authenticate(newUriString, token);
+                    Map<String, String> header = new HashMap<>(3);
+                    String t = token.getToken();
+                    if (t != null) {
+                        if (!t.startsWith("\"")) {
+                            t = "\"" + t + "\"";
+                        }
+                        header.put("Cookie", PseudoAuthenticator.AUTH_COOKIE_EQ + t);
+                    }
+                    WebhdfsUrlBuilder testUrlBuilder = defaultUrlBuilder().endpoint(newUriString).params(Collections.singletonMap(ApiConstant.OP, ApiConstant.GETFILESTATUS));
+                    Request request = buildRequest(testUrlBuilder.build(), ApiConstant.GET, null, header);
+                    try (Response response = okHttpClient.newCall(request).execute()) {
+                        if (!response.isSuccessful() && response.code() != ApiConstant.NOT_FOUND) {
+                            continue;
+                        }
+                    }
+                    urlBuilder.endpoint(newUriString);
+                    this.url = newUriString;
+                    if (authenticator instanceof KerberosAuthenticator) {
+                        ((KerberosAuthenticator) authenticator).setServicePrincipal(entry.getValue());
+                    }
+                    this.token.set(token.getToken());
+                    switchState = true;
+                    log.info("switchNameNode from {} to {}", String.format("%s:%d", uri.getHost(), uri.getPort()), entry.getKey());
+                    break;
+                } catch (Exception e) {
+                    log.error("switchNameNode[{}] error:{}", entry.getKey(), e.getMessage());
+                }
+            }
+            lastSwitchNameNode = System.currentTimeMillis();
+        }
+        return switchState;
+    }
+
+    protected Response execute(WebhdfsUrlBuilder url, String method, RequestBody requestBody) throws IOException {
         return execute(url, method, requestBody, Collections.emptyMap());
+    }
+
+    private Response execute(WebhdfsUrlBuilder url, String method, RequestBody requestBody, Map<String, String> headers) throws IOException {
+        Response response = null;
+        try {
+            response = execute(url.build(), method, requestBody, headers);
+            if (response.code() == ApiConstant.FORBIDDEN || response.code() == ApiConstant.SERVICE_UNAVAIABLE) {
+                if (switchNameNode(url)) {
+                    IOUtils.closeQuietly(response, null);
+                    response = execute(url.build(), method, requestBody, headers);
+                }
+            }
+            return response;
+        } catch (IOException e) {
+            IOUtils.closeQuietly(response, null);
+            if (switchNameNode(url)) {
+                return execute(url.build(), method, requestBody, headers);
+            }
+            throw e;
+        }
     }
 
     private Response execute(String url, String method, RequestBody requestBody, Map<String, String> headers) throws IOException {
@@ -119,17 +217,17 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
         if (method.equals(ApiConstant.POST) || method.equals(ApiConstant.PUT)) {
             okHttpClient = okHttpClient.newBuilder().retryOnConnectionFailure(false).build();
         }
-        Request request = buildRequest(url, method, requestBody);
+        Request request = buildRequest(url, method, requestBody, headers);
         Response response = okHttpClient.newCall(request).execute();
         if (response.code() == ApiConstant.UNAUTHORIZED) {
             IOUtils.closeQuietly(response, null);
             synchronized (LOCK) {
-                request = buildRequest(url, method, requestBody);
+                request = buildRequest(url, method, requestBody, headers);
                 response = okHttpClient.newCall(request).execute();
                 if (response.code() == ApiConstant.UNAUTHORIZED) {
                     token.set(null);
                     IOUtils.closeQuietly(response, null);
-                    request = buildRequest(url, method, requestBody);
+                    request = buildRequest(url, method, requestBody, headers);
                     response = okHttpClient.newCall(request).execute();
                 }
             }
@@ -155,8 +253,8 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
     }
 
     private boolean exist(String bucket, String object) throws Exception {
-        String url = defaultUrlBuilder().bucket(bucket).object(object)
-                .params(Collections.singletonMap(ApiConstant.OP, ApiConstant.GETFILESTATUS)).build();
+        WebhdfsUrlBuilder url = defaultUrlBuilder().bucket(bucket).object(object)
+                .params(Collections.singletonMap(ApiConstant.OP, ApiConstant.GETFILESTATUS));
         try (Response response = execute(url, ApiConstant.GET, null)) {
             if (response.code() == ApiConstant.NOT_FOUND) {
                 return false;
@@ -192,14 +290,14 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
         Map<String, String> params = new HashMap<>();
         params.put(ApiConstant.OP, ApiConstant.SETACL);
         params.put("aclspec", Joiner.on(",").join(aclEntries));
-        String url = defaultUrlBuilder().bucket(bucket).object(object).params(params).build();
+        WebhdfsUrlBuilder url = defaultUrlBuilder().bucket(bucket).object(object).params(params);
         try (Response response = execute(url, ApiConstant.PUT, Util.EMPTY_REQUEST)) {
             validResult(response);
         }
     }
 
     private AclResponse getAcl(String bucket, String object) throws IOException {
-        String url = defaultUrlBuilder().bucket(bucket).object(object).params(Collections.singletonMap(ApiConstant.OP, ApiConstant.GETACLSTATUS)).build();
+        WebhdfsUrlBuilder url = defaultUrlBuilder().bucket(bucket).object(object).params(Collections.singletonMap(ApiConstant.OP, ApiConstant.GETACLSTATUS));
         try (Response response = execute(url, ApiConstant.GET, null)) {
             JSONObject jsonObject = validResult(response);
             JSONObject aclStatus = jsonObject.getJSONObject("AclStatus");
@@ -277,7 +375,7 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
         Map<String, String> param = new HashMap<>();
         param.put("recursive", Boolean.toString(recursive));
         param.put(ApiConstant.OP, ApiConstant.DELETE);
-        String url = defaultUrlBuilder().bucket(bucket).object(object).params(param).build();
+        WebhdfsUrlBuilder url = defaultUrlBuilder().bucket(bucket).object(object).params(param);
         try (Response response = execute(url, ApiConstant.DELETE, null)) {
             return validResult(response).getBooleanValue("boolean");
         }
@@ -302,7 +400,7 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
         Map<String, String> param = new HashMap<>();
         param.put("permission", "777");
         param.put(ApiConstant.OP, ApiConstant.MKDIRS);
-        String url = defaultUrlBuilder().bucket(bucket).params(param).build();
+        WebhdfsUrlBuilder url = defaultUrlBuilder().bucket(bucket).params(param);
         try (Response response = execute(url, ApiConstant.PUT, Util.EMPTY_REQUEST)) {
             validResult(response);
         } catch (Exception e) {
@@ -319,8 +417,8 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
         }
         List<BucketResponse> bucketResponses = new ArrayList<>();
         for (String bucket : filterBuckets) {
-            String url = defaultUrlBuilder().bucket(bucket)
-                    .params(Collections.singletonMap(ApiConstant.OP, ApiConstant.GETFILESTATUS)).build();
+            WebhdfsUrlBuilder url = defaultUrlBuilder().bucket(bucket)
+                    .params(Collections.singletonMap(ApiConstant.OP, ApiConstant.GETFILESTATUS));
             try (Response response = execute(url, ApiConstant.GET, null)) {
                 if (ApiConstant.NOT_FOUND == response.code()) {
                     continue;
@@ -371,10 +469,11 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
         params.put("permission", "777");
         params.put("createparent", "true");
         params.put(ApiConstant.OP, ApiConstant.CREATE);
-        String url = defaultUrlBuilder().bucket(args.getBucket()).object(args.getObject())
-                .params(params).build();
+        WebhdfsUrlBuilder urlBuilder = defaultUrlBuilder().bucket(args.getBucket()).object(args.getObject())
+                .params(params);
         try (InputStream inputStream = args.getInputStream();
-             Response locationResponse = execute(url, ApiConstant.PUT, Util.EMPTY_REQUEST)) {
+             Response locationResponse = execute(urlBuilder, ApiConstant.PUT, Util.EMPTY_REQUEST)) {
+            String url;
             if (locationResponse.isRedirect()) {
                 url = locationResponse.header(ApiConstant.LOCATION);
             } else {
@@ -392,7 +491,7 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
                     sink.writeAll(Okio.source(inputStream));
                 }
             };
-            try (Response putResponse = execute(url, ApiConstant.PUT, requestBody)) {
+            try (Response putResponse = execute(url, ApiConstant.PUT, requestBody, Collections.emptyMap())) {
                 if (!putResponse.isSuccessful()) {
                     throw new OssException(String.valueOf(putResponse.code()), putResponse.message());
                 }
@@ -447,8 +546,8 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
     @Override
     public ObjectMetadataResponse statObject(GetObjectArgs args) {
         log.info("{}", JSON.toJSONString(args));
-        String url = defaultUrlBuilder().bucket(args.getBucket()).object(args.getObject())
-                .params(Collections.singletonMap(ApiConstant.OP, ApiConstant.GETFILESTATUS)).build();
+        WebhdfsUrlBuilder url = defaultUrlBuilder().bucket(args.getBucket()).object(args.getObject())
+                .params(Collections.singletonMap(ApiConstant.OP, ApiConstant.GETFILESTATUS));
         try (Response response = execute(url, ApiConstant.GET, null)) {
             if (ApiConstant.NOT_FOUND == response.code()) {
                 throw OssExceptionEnum.FILE_NOT_EXIST.getException();
@@ -482,8 +581,8 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
 
     @Override
     public GetObjectResponse getObject(GetObjectArgs args) {
-        String url = defaultUrlBuilder().bucket(args.getBucket()).object(args.getObject())
-                .params(Collections.singletonMap(ApiConstant.OP, ApiConstant.OPEN)).build();
+        WebhdfsUrlBuilder url = defaultUrlBuilder().bucket(args.getBucket()).object(args.getObject())
+                .params(Collections.singletonMap(ApiConstant.OP, ApiConstant.OPEN));
         Response response = null;
         try {
             response = execute(url, ApiConstant.GET, null, rangeHeader(args.getRange()));
@@ -505,8 +604,8 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
     }
 
     private void listObjects(List<ItemResponse> itemResponses, ListObjectsArgs args, String parentObject, String parentPath) {
-        String url = defaultUrlBuilder().bucket(args.getBucket()).object(parentObject)
-                .params(Collections.singletonMap(ApiConstant.OP, ApiConstant.LISTSTATUS)).build();
+        WebhdfsUrlBuilder url = defaultUrlBuilder().bucket(args.getBucket()).object(parentObject)
+                .params(Collections.singletonMap(ApiConstant.OP, ApiConstant.LISTSTATUS));
         try (Response response = execute(url, ApiConstant.GET, null)) {
             JSONObject result = validResult(response);
             JSONObject fileStatuses = result.getJSONObject(ApiConstant.FILESTATUSES);

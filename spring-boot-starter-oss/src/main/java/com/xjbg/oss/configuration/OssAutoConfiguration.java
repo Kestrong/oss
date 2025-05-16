@@ -10,13 +10,16 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.util.AwsHostNameUtils;
+import com.xjbg.oss.api.ApiConstant;
 import com.xjbg.oss.api.OssTemplate;
 import com.xjbg.oss.api.impl.filesystem.FileSystemApiImpl;
 import com.xjbg.oss.api.impl.s3.CephApiImpl;
 import com.xjbg.oss.api.impl.s3.FusionStorageApiImpl;
 import com.xjbg.oss.api.impl.s3.MinioApiImpl;
 import com.xjbg.oss.api.impl.s3.S3ApiImpl;
+import com.xjbg.oss.api.impl.webhdfs.Authenticator;
 import com.xjbg.oss.api.impl.webhdfs.KerberosAuthenticator;
+import com.xjbg.oss.api.impl.webhdfs.PseudoAuthenticator;
 import com.xjbg.oss.api.impl.webhdfs.WebHdfsApiImpl;
 import com.xjbg.oss.enums.ApiType;
 import com.xjbg.oss.properties.OssProperties;
@@ -124,8 +127,15 @@ public class OssAutoConfiguration {
         OssProperties.WebHdfsProperties webHdfsProperties = properties.getWebhdfs();
         if (webHdfsProperties.isEnable() && StringUtils.hasText(webHdfsProperties.getUrl())) {
             OkHttpClient okHttpClient = createOkHttp(clientConfig);
-            KerberosAuthenticator kerberosAuthenticator = new KerberosAuthenticator(okHttpClient, webHdfsProperties.getAccessKey(), webHdfsProperties.getSecretKey(), webHdfsProperties.getKrb5(), webHdfsProperties.getServicePrincipal(), webHdfsProperties.isDebug());
-            ossTemplate.register(ApiType.WEBHDFS, new WebHdfsApiImpl(okHttpClient, kerberosAuthenticator, webHdfsProperties.getAccessKey(), webHdfsProperties.getSecretKey(), webHdfsProperties.getKrb5(), webHdfsProperties.getUrl(), webHdfsProperties.getDefaultBucket()));
+            Authenticator authenticator;
+            if (ApiConstant.KERBEROS.equalsIgnoreCase(webHdfsProperties.getAuthType())) {
+                authenticator = new KerberosAuthenticator(okHttpClient, webHdfsProperties.getAccessKey(), webHdfsProperties.getSecretKey(), webHdfsProperties.getKrb5(), webHdfsProperties.getServicePrincipal(), webHdfsProperties.isDebug());
+            } else if (ApiConstant.PSEUDO.equalsIgnoreCase(webHdfsProperties.getAuthType())) {
+                authenticator = new PseudoAuthenticator(webHdfsProperties.getAccessKey(), okHttpClient);
+            } else {
+                authenticator = new Authenticator.NoopAuthenticator();
+            }
+            ossTemplate.register(ApiType.WEBHDFS, new WebHdfsApiImpl(okHttpClient, authenticator, webHdfsProperties.getAccessKey(), webHdfsProperties.getSecretKey(), webHdfsProperties.getKrb5(), webHdfsProperties.getUrl(), webHdfsProperties.getDefaultBucket(), webHdfsProperties.getStandby()));
         }
         if (properties.getDefaultApiType() != null) {
             ossTemplate.setDefaultApiType(properties.getDefaultApiType());

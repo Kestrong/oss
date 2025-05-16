@@ -100,7 +100,6 @@ public class PseudoAuthenticator implements Authenticator {
                 }
             }
         } else {
-            token.set(null);
             throw new AuthenticationException("Authentication failed, status: " + response.code() +
                     ", message: " + response.message());
         }
