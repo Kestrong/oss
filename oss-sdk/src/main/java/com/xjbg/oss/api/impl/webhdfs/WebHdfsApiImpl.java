@@ -150,9 +150,6 @@ public class WebHdfsApiImpl extends AbstractOssApiImpl {
                     }
                     URI newUri = new URI(uri.getScheme(), null, host, port, uri.getPath(), uri.getQuery(), uri.getFragment());
                     String newUriString = newUri.toString();
-                    if (newUriString.equals(uri.toString())) {
-                        continue;
-                    }
                     Authenticator.Token token = new Authenticator.Token();
                     authenticator.authenticate(newUriString, token);
                     Map<String, String> header = new HashMap<>(3);
