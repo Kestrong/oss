@@ -13,5 +13,5 @@ oss:
     defaultBucket: test
     url: http://10.11.2.187:9000
     accessKey: minio
-    secretKey: Itsm@iod#520
+    secretKey: xxxxxx
     enable: true
